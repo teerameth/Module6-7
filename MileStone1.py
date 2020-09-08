@@ -15,7 +15,7 @@ def imshow_fullscreen(winname, img):
     cv2.setWindowProperty (winname, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.imshow (winname, img)
 
-cap = v4l2capture.Video_device("/dev/video0")
+cap = v4l2capture.Video_device("/dev/video2")
 size_x, size_y = cap.set_format(width, height, fourcc='MJPG')
 cap.create_buffers(1)
 cap.queue_all_buffers()

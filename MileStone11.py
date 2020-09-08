@@ -25,11 +25,50 @@ win.setCentralWidget(area)
 win.resize(1920,1080)
 win.setWindowTitle('Pony Slayer: Mile Stone I')
 
+updateTime = ptime.time()
+fps = 0
+def points_inverse_y(points): # Inverse y axis of points
+    rect = []
+    for point in points:
+        rect.append([int(point[0]), int(height - point[1])])
+    return np.asarray(rect)
+def update(): # Update preview image (and get image from camera)
+    global preview_img_rgb, warped_img_rgb, updateTime, fps, ROI
+    select.select((cap,), (), ())
+    image_data = cap.read_and_queue()
+    frame = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_rgb = cv2.rotate(frame_rgb, cv2.ROTATE_90_CLOCKWISE)
+    ## Display RAW image on Dock 1
+    preview_img_rgb.setImage(frame_rgb)
+    
+    ## Get ROI position
+    ROI_points_raw = ROI.getState()['points']
+    # print(ROI_points_raw)
+    ROI_points_inverse = points_inverse_y(ROI_points_raw) # Inverse y-axis to be compatible with OpenCV
+    print(ROI_points_inverse)
+    ## Transform from Image to World coordinate
+    maxWidth, maxHeight = 540, 540
+    dst_points = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype = "float32")
+    HM, status = cv2.findHomography(ROI_points_inverse, dst_points) # get HM(Homography Matrix)
+    warped_img = cv2.warpPerspective(frame_rgb, HM, (maxWidth, maxHeight))
+    ## Display Warped image on Dock 2
+    warped_img_rgb.setImage(warped_img)
+    
+    
+    
+    QtCore.QTimer.singleShot(1, update) # Update UI
+    now = ptime.time()
+    fps2 = 1.0 / (now-updateTime)
+    updateTime = now
+    fps = fps * 0.9 + fps2 * 0.1
+    # print("%0.1f fps" % fps)
+
 ### Create Dock ###
-d1 = Dock("Dock1 - Preview", size=(960, 540))
-d2 = Dock("Dock2 - Transformed", size=(540,540))
-d3 = Dock("Dock3 - Control Panel", size=(420,540))
-d4 = Dock("Dock4 - 3D Preview", size=(960,540))
+d1 = Dock("Dock1 - Preview",        size=(960,540))
+d2 = Dock("Dock2 - Transformed",    size=(540,540))
+d3 = Dock("Dock3 - Control Panel",  size=(420,540))
+d4 = Dock("Dock4 - 3D Preview",     size=(960,540))
 d5 = Dock("Dock5 - Extract Marker", size=(540,540))
 area.addDock(d1, 'left')      
 area.addDock(d2, 'right', d1) 
@@ -43,84 +82,32 @@ d1.addWidget(w1)
 view = w1.addViewBox()
 view.setAspectLocked(True)
 view.setMouseEnabled(x=False, y=False) # Make it unable to move by mouse
-preview_img_rgb = pg.ImageItem(border='w') # Preview Image
+# Get first frame #
+select.select((cap,), (), ())
+image_data = cap.read_and_queue()
+frame = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+preview_img_rgb = pg.ImageItem(frame_rgb, border='w') # Preview first Image
 view.addItem(preview_img_rgb)
-## Dock 1.5 - Transformed image from ROI
-# v2a = w1.addViewBox(row=1, col=0, lockAspect=True)
-ROI = pg.PolyLineROI([[100,100], [500,100], [500, 500], [100,500]], closed=True) # Count from buttom left
-def update_roi(roi): # update transformed image from ROI
-    pass
-ROI.sigRegionChanged.connect(update_roi)
+# Add ROI as overlay #
+ROI = pg.PolyLineROI([[100,100], [500,100], [500, 500], [100,500]], closed=True) # Default ROI (count from buttom left)
 view.addItem(ROI)
-update_roi(ROI)
-# print(ROI.getArrayRegion(preview_img_rgb, img1a), levels=(0, arr.max()))
-
-updateTime = ptime.time()
-fps = 0
-def updatew1(): # Update preview image (and get image from camera)
-    global preview_img_rgb, updateTime, fps
-    select.select((cap,), (), ())
-    image_data = cap.read_and_queue()
-    frame = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame_rgb = cv2.rotate(frame_rgb, cv2.ROTATE_90_CLOCKWISE)
-    ## Display the data
-    preview_img_rgb.setImage(frame_rgb)
-    QtCore.QTimer.singleShot(1, updatew1)
-    now = ptime.time()
-    fps2 = 1.0 / (now-updateTime)
-    updateTime = now
-    fps = fps * 0.9 + fps2 * 0.1
-    print("%0.1f fps" % fps)
+## Dock 2 - Transformed image from ROI ##
+w2 = pg.GraphicsLayoutWidget()
+d2.addWidget(w2)
+view2 = w2.addViewBox()
+view2.setAspectLocked(True)
+view2.setMouseEnabled(x=False, y=False) # Make it unable to move by mouse
+# Display first transformed frame(dummy)
+warped_img_rgb = pg.ImageItem(np.zeros((540,540,3), np.uint8), border='w')
+view2.addItem(warped_img_rgb)
 
 
-## first dock gets save/restore buttons
-# w1 = pg.LayoutWidget()
-# label = QtGui.QLabel(""" -- Mile Stone I -- """)
-# saveBtn = QtGui.QPushButton('Save dock state')
-# restoreBtn = QtGui.QPushButton('Restore dock state')
-# restoreBtn.setEnabled(False)
-# w1.addWidget(label, row=0, col=0)
-# w1.addWidget(saveBtn, row=1, col=0)
-# w1.addWidget(restoreBtn, row=2, col=0)
-# d1.addWidget(w1)
-# state = None
-# def save():
-#     global state
-#     state = area.saveState()
-#     restoreBtn.setEnabled(True)
-# def load():
-#     global state
-#     area.restoreState(state)
-# saveBtn.clicked.connect(save)
-# restoreBtn.clicked.connect(load)
-
-
-# w2 = pg.console.ConsoleWidget()
-# d2.addWidget(w2)
-
-# ## Hide title bar on dock 3
-# d3.hideTitleBar()
-# w3 = pg.PlotWidget(title="Plot inside dock with no title bar")
-# w3.plot(np.random.normal(size=100))
-# d3.addWidget(w3)
-
-# w4 = pg.PlotWidget(title="Dock 4 plot")
-# w4.plot(np.random.normal(size=100))
-# d4.addWidget(w4)
-
-# w5 = pg.ImageView()
-# w5.setImage(np.random.normal(size=(100,100)))
-# d5.addWidget(w5)
-
-# w6 = pg.PlotWidget(title="Dock 6 plot")
-# w6.plot(np.random.normal(size=100))
-# d6.addWidget(w6)
 
 
 
 win.show()
-updatew1()
+update()
 
 
 ## Start Qt event loop unless running in interactive mode or using pyside.
