@@ -12,7 +12,7 @@ from pyqtgraph.dockarea import *
 
 ### Camera init ###
 width, height = 1920, 1080
-cap = v4l2capture.Video_device("/dev/video4")
+cap = v4l2capture.Video_device("/dev/video0")
 size_x, size_y = cap.set_format(width, height, fourcc='MJPG')
 cap.create_buffers(1)
 cap.queue_all_buffers()
@@ -27,12 +27,6 @@ win.setWindowTitle('Pony Slayer: Mile Stone I')
 
 updateTime = ptime.time()
 fps = 0
-def points_inverse_y(points): # Inverse y axis of points
-    rect = []
-    for point in points:
-        # rect.append([int(point[0]), int(height - point[1])])
-        rect.append([int(point[1]), int(point[0])])
-    return np.asarray(rect)
 def update(): # Update preview image (and get image from camera)
     global preview_img_rgb, warped_img_rgb, updateTime, fps, ROI
     select.select((cap,), (), ())
@@ -45,13 +39,13 @@ def update(): # Update preview image (and get image from camera)
     
     ## Get ROI position
     ROI_points_raw = ROI.getState()['points']
-    print(ROI_points_raw)
-    ROI_points_inverse = points_inverse_y(ROI_points_raw) # Inverse y-axis to be compatible with OpenCV
-    # print(ROI_points_inverse)
+    ROI_points = []
+    for point in ROI_points_raw:
+        ROI_points.append([int(point[1]), int(point[0])]) # Convert Qt coordinate system to pixel coordinate system
     ## Transform from Image to World coordinate
     maxWidth, maxHeight = 540, 540
     dst_points = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype = "float32")
-    HM, status = cv2.findHomography(ROI_points_inverse, dst_points) # get HM(Homography Matrix)
+    HM, status = cv2.findHomography(np.asarray(ROI_points), dst_points) # get HM(Homography Matrix)
     warped_img = cv2.warpPerspective(frame_rgb, HM, (maxWidth, maxHeight))
     ## Display Warped image on Dock 2
     warped_img_rgb.setImage(warped_img)
