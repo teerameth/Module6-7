@@ -34,10 +34,10 @@ while True:
     # draw only keypoints location,not size and orientation
     img = cv2.drawKeypoints(img, kp, img, color=(0,255,0), flags=0)
 
-    pts_src = np.array([[141, 131], [480, 159], [493, 630],[64, 601]])
-    pts_src = np.array([[0, 0],[0, 1920],[1080, 1920],[1080, 0]])
-    pts_dst = np.array([[318, 256],[534, 372],[316, 670],[73, 473]])
-    # pts_dst = np.array([[0, 0],[0, 1920],[1080, 1920],[1080, 0]])
+    pts_src = np.array([[318, 256],[534, 372],[316, 670],[73, 473]])
+    # pts_src = np.array([[0, 0],[0, 1920],[1080, 1920],[1080, 0]])
+    # pts_dst = np.array([[318, 256],[534, 372],[316, 670],[73, 473]])
+    pts_dst = np.array([[0, 0],[0, 1920],[1080, 1920],[1080, 0]])
     h, status = cv2.findHomography(pts_src, pts_dst)
     img = cv2.warpPerspective(img, h, (width, height))
     

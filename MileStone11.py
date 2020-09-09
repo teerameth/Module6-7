@@ -12,7 +12,7 @@ from pyqtgraph.dockarea import *
 
 ### Camera init ###
 width, height = 1920, 1080
-cap = v4l2capture.Video_device("/dev/video2")
+cap = v4l2capture.Video_device("/dev/video4")
 size_x, size_y = cap.set_format(width, height, fourcc='MJPG')
 cap.create_buffers(1)
 cap.queue_all_buffers()
@@ -30,7 +30,8 @@ fps = 0
 def points_inverse_y(points): # Inverse y axis of points
     rect = []
     for point in points:
-        rect.append([int(point[0]), int(height - point[1])])
+        # rect.append([int(point[0]), int(height - point[1])])
+        rect.append([int(point[1]), int(point[0])])
     return np.asarray(rect)
 def update(): # Update preview image (and get image from camera)
     global preview_img_rgb, warped_img_rgb, updateTime, fps, ROI
@@ -40,13 +41,13 @@ def update(): # Update preview image (and get image from camera)
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     frame_rgb = cv2.rotate(frame_rgb, cv2.ROTATE_90_CLOCKWISE)
     ## Display RAW image on Dock 1
-    preview_img_rgb.setImage(frame_rgb)
+    preview_img_rgb.setImage(frame_rgb, levels=(0, frame_rgb.max()))
     
     ## Get ROI position
     ROI_points_raw = ROI.getState()['points']
-    # print(ROI_points_raw)
+    print(ROI_points_raw)
     ROI_points_inverse = points_inverse_y(ROI_points_raw) # Inverse y-axis to be compatible with OpenCV
-    print(ROI_points_inverse)
+    # print(ROI_points_inverse)
     ## Transform from Image to World coordinate
     maxWidth, maxHeight = 540, 540
     dst_points = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype = "float32")
@@ -79,8 +80,7 @@ area.addDock(d5, 'bottom', d2)
 ## Dock 1 - Preview image from camera & overlay ##
 w1 = pg.GraphicsLayoutWidget()
 d1.addWidget(w1)
-view = w1.addViewBox()
-view.setAspectLocked(True)
+view = w1.addViewBox(lockAspect=True)
 view.setMouseEnabled(x=False, y=False) # Make it unable to move by mouse
 # Get first frame #
 select.select((cap,), (), ())
@@ -95,8 +95,7 @@ view.addItem(ROI)
 ## Dock 2 - Transformed image from ROI ##
 w2 = pg.GraphicsLayoutWidget()
 d2.addWidget(w2)
-view2 = w2.addViewBox()
-view2.setAspectLocked(True)
+view2 = w2.addViewBox(lockAspect=True)
 view2.setMouseEnabled(x=False, y=False) # Make it unable to move by mouse
 # Display first transformed frame(dummy)
 warped_img_rgb = pg.ImageItem(np.zeros((540,540,3), np.uint8), border='w')

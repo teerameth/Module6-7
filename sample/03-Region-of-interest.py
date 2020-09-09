@@ -55,12 +55,12 @@ v1a.autoRange()
 v1b.autoRange()
 
 rois = []
-rois.append(pg.RectROI([20, 20], [20, 20], pen=(0,9)))
-rois[-1].addRotateHandle([1,0], [0.5, 0.5])
-rois.append(pg.LineROI([0, 60], [20, 80], width=5, pen=(1,9)))
-rois.append(pg.MultiRectROI([[20, 90], [50, 60], [60, 90]], width=5, pen=(2,9)))
-rois.append(pg.EllipseROI([60, 10], [30, 20], pen=(3,9)))
-rois.append(pg.CircleROI([80, 50], [20, 20], pen=(4,9)))
+# rois.append(pg.RectROI([20, 20], [20, 20], pen=(0,9)))
+# rois[-1].addRotateHandle([1,0], [0.5, 0.5])
+# rois.append(pg.LineROI([0, 60], [20, 80], width=5, pen=(1,9)))
+# rois.append(pg.MultiRectROI([[20, 90], [50, 60], [60, 90]], width=5, pen=(2,9)))
+# rois.append(pg.EllipseROI([60, 10], [30, 20], pen=(3,9)))
+# rois.append(pg.CircleROI([80, 50], [20, 20], pen=(4,9)))
 #rois.append(pg.LineSegmentROI([[110, 50], [20, 20]], pen=(5,9)))
 rois.append(pg.PolyLineROI([[80, 60], [90, 30], [60, 40]], pen=(6,9), closed=True))
 
