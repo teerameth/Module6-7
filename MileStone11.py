@@ -14,7 +14,7 @@ workspace_Xmax, workspace_Ymax = 400, 400 # Maximum workspace in millimeter
 
 ### Camera init ###
 width, height = 1920, 1080
-cap = v4l2capture.Video_device("/dev/video4")
+cap = v4l2capture.Video_device("/dev/video2")
 size_x, size_y = cap.set_format(width, height, fourcc='MJPG')
 cap.create_buffers(1)
 cap.queue_all_buffers()
@@ -57,7 +57,7 @@ def update(): # Update preview image (and get image from camera)
     ## Update label of pixel coordinate of crosshair on Dock 2
     if mousePoint is not None:
         label_pixel.setText("<span style='font-size: 24pt'>Pixel coordinate: <span style='color: red'>x=%0.1f, y=%0.1f</span></span>" % (mousePoint.x(), mousePoint.y()))
-        label_image.setText("<span style='font-size: 24pt'>Image coordinate: <span style='color: green'>x=%0.1f, y=%0.1f</span></span>" % (mousePoint.x()/540*workspace_Xmax, mousePoint.y()/540*workspace_Ymax))
+        label_image.setText("<span style='font-size: 24pt'>Image coordinate: <span style='color: green'>x=%0.1f, y=%0.1f</span></span>" % ((mousePoint.x()-540/2)/540*workspace_Xmax, (mousePoint.y()-540/2)/540*workspace_Ymax))
 
     
     
