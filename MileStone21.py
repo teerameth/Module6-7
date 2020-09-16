@@ -1,7 +1,7 @@
 import cv2
 
-# width, height = 1920, 1080
-width, height = 1280, 720
+width, height = 1920, 1080
+# width, height = 1280, 720
 
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cap.set(cv2.CAP_PROP_FPS, 30.0)
