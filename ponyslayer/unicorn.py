@@ -51,7 +51,6 @@ class ContourProcessor():
                     approx = cv2.approxPolyDP(c, 0.02 * peri, True)
                     buffer.append(np.array(approx, dtype=np.int32))
                     print("Match {}%".format(round(match, 2)))
-    def 
         return buffer
 class Marker():
     def __init__(self, c):
