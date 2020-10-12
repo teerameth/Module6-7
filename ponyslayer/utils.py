@@ -17,25 +17,26 @@ def imshows(imgs, labels):
         ax[i].set_title(labels[i], fontsize=20)
     fig.tight_layout()
     plt.show()
-def imdraw(cnt, frame, mode = 0, color = 0, size = 1):
+def imdraw(c, frame, mode = 0, color = 0, size = 1, show = True):
     if mode: canvas = np.zeros_like(frame, np.uint8)
     else: canvas = frame.copy()
     cv2.drawContours(canvas, [c], 0, colors[color], size)
-    imshow(canvas)
-def imdraws(cnts, frame, mode = 0, color = 0, size = 1):
+    if show: imshow(canvas)
+def imdraws(cnts, frame, mode = 0, color = 0, size = 1, show = True):
     if mode: canvas = np.zeros_like(frame, np.uint8)
     else: canvas = frame.copy()
     cv2.drawContours(canvas, cnts, -1, colors[color], size)
-    imshow(canvas)
-def imdraws_color(cnts, frame, mode = 0, size = 1):
+    if show: imshow(canvas)
+def imdraws_color(cnts, frame, mode = 0, size = 1, show = True):
     if mode: canvas = np.zeros_like(frame, np.uint8)
     else: canvas = frame.copy()
     for i in range(len(cnts)):
         cv2.drawContours(canvas, cnts, i, colors[i%len(colors)], size)
         if mode == 2: # Object by Object
-            imshow(canvas)
+            if show: imshow(canvas)
             canvas = np.zeros_like(frame, np.uint8)
-    if mode != 2: imshow(canvas)
+    if mode != 2 and show: imshow(canvas)
+    return canvas
 def immask(c, frame):
     mask = np.ones(frame.shape[:2], dtype="uint8") * 255
     cv2.drawContours(mask, [c], 0, 0, -1)
@@ -45,3 +46,12 @@ def immasks(cnts, frame, show = True):
     cv2.drawContours(mask, cnts, -1, 0, -1)
     if show: imshow(mask)
     return mask
+def implot(c, frame, mode = 0, size = 1):
+    if mode: canvas = np.zeros_like(frame, np.uint8)
+    else: canvas = frame.copy()
+    for i in range(len(c)):
+        center = (c[i][0][0], c[i][0][1])
+        cv2.circle(canvas, center, size, (255, 255, 255), -1)
+        cv2.imshow("Preview Plot", canvas)
+        cv2.waitKey(1)
+    return canvas

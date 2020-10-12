@@ -1,17 +1,26 @@
 import numpy as np
 import cv2
+from math import sqrt
+from .transform import four_point_transform
 
+def euclidean(p1, p2):
+    return sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 def medianCanny(img, thresh1, thresh2):
     median = np.median(img)
     img = cv2.Canny(img, int(thresh1 * median), int(thresh2 * median))
     return img
 
 class ContourProcessor():
-    def set_param(self, image_resolution, image_size, marker_size, marker_size_error):
+    def set_param(self, image_resolution, image_size, marker_size, marker_size_error, min_path_length, max_path_length, min_path_width, max_path_width):
         self.image_resolution = image_resolution
         self.image_size = image_size
         self.marker_size = marker_size
         self.marker_size_error = marker_size_error
+        self.min_path_length = min_path_length
+        self.max_path_length = max_path_length
+        self.min_path_width = min_path_width
+        self.max_path_width = max_path_width
+        self.marker_size_pixel = image_resolution / image_size * marker_size
     def get_center(self, c):
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.02 * peri, True)
@@ -52,9 +61,96 @@ class ContourProcessor():
                     buffer.append(np.array(approx, dtype=np.int32))
                     print("Match {}%".format(round(match, 2)))
         return buffer
+    def get_path_contours(self, cnts, Markers, frame):
+        buffer = []
+        areas = []
+        for c in cnts:
+            ##################################################################################
+            ### Minimum area of path contour limited at minimum path width * minimum path length ###
+            ##################################################################################
+            area = cv2.contourArea(c)
+            if area < (self.image_resolution / self.image_size * self.min_path_width)*(self.image_resolution / self.image_size * self.min_path_length): continue
+            ###################################################################################
+            ### Path needed to be near a least one Marker (Near = not far than marker size) ###
+            ###################################################################################
+            distanceMin = 99999999
+            for Marker in Markers:
+                candidate_distance = abs(cv2.pointPolygonTest(c, Marker.center, True))
+                if candidate_distance < distanceMin: distanceMin = candidate_distance
+            if distanceMin > (self.image_resolution / self.image_size * self.marker_size): continue
+            #################################################################
+            ### Path must not overlap Marker more than 50% of Marker area ###
+            #################################################################
+            canvas = np.zeros(frame.shape[:2], dtype="uint8")
+            mask_path = cv2.drawContours(canvas.copy(), [c], 0, 255, -1)
+            _isMarker = False
+            for Marker in Markers:
+                mask_marker = cv2.drawContours(canvas.copy(), [Marker.contour], 0, 255, -1)
+                intersection = np.logical_and(mask_path, mask_marker) # mask of intersection
+                intersect_count = np.count_nonzero(intersection == True) # intersection count
+                if intersect_count > (self.marker_size_pixel**2) / 2: _isMarker = True # if intersection is more than 50% of marker area
+            if _isMarker: continue
+
+            buffer.append(c)
+            areas.append(area)
+        ############################################################################################
+        ### Number of Path need to match with number of Marker -> Choose only N fist largest area###
+        ############################################################################################
+        buffer = [x for _, x in sorted(zip(areas, buffer), reverse=True)]
+        buffer = buffer[:len(Markers)] # Choose only big contours
+        # bestMatch = 9999
+        # for Marker in Markers:
+        #     candidate_match = cv2.matchShapes(Marker.contour, c, 1, 0)# Lower = better match
+        #     if bestMatch > candidate_match:
+        #         bestMatch = candidate_match
+        # if bestMatch < 1: continue
+        return buffer
+
+    def findContourCenter(self, c):
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+        self.rect = np.asarray(approx, dtype="float32")
+        M = cv2.moments(c)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        return (cX, cY)
+    def minDistance(self, cnt1, cnt2): # Find minimum distance between 2 contours
+        distanceMin = 99999999
+        point = None
+        for A in cnt1:
+            for x, y in A:
+                distance = abs(cv2.pointPolygonTest(cnt2, (x, y), True))
+                if (distance < distanceMin):
+                    distanceMin = distance
+                    point = (x, y)
+        return distanceMin, point
+    def getPointArray(self, c):
+        buffer = []
+        for item in c:
+            buffer.append((item[0][0], item[0][1]))
+        return np.array(buffer, dtype = "float32")
+    def nearestPoint(self, point, c):
+        distanceMin = 99999999
+        best = None
+        for item in c:
+            candidate = item[0]
+            distance = euclidean(candidate, point)
+            if distanceMin > distance:
+                best = candidate
+                distanceMin = distance
+        return tuple(best)
+_cp = ContourProcessor()
+
 class Marker():
     def __init__(self, c):
         self.contour = c
+        self.center = _cp.findContourCenter(c)
+    def getImage(self, img):
+        return four_point_transform(img, _cp.getPointArray(self.contour))
+
+
 class Path():
     def __init__(self, c):
         self.contour = c
+    def set_start(self, point):
+        self.start = point
