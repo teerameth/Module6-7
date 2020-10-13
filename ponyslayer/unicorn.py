@@ -158,6 +158,9 @@ class Marker():
 class Path():
     def __init__(self, c):
         self.contour = c
+        self.waypoints = None
+        self.duo_list = None
+        self.waypoints3D = None
     def set_start(self, point):
         self.start = point
     def generate_trajectory2D(self, Markers, marker_size_pixel, marker_size_error, step_size = 5):
@@ -188,10 +191,10 @@ class Path():
                 point1 = (int(points[counter1][0]), int(points[counter1][1]))
                 point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
                 duo_list.append([point1, point2])
-                middle.append((int((point2[0]+point1[0])/2), int((point1[1]+point2[1])/2)))
+                middle.append((int((point1[0]+point2[0])/2), int((point1[1]+point2[1])/2)))
                 counter2 = best['index']
             counter1 += step_size
-        return duo_list, middle
+        return duo_list[:-1], middle[:-1]
     def generate_trajectory2D_rev2(self, Markers, marker_size_pixel, marker_size_error, step_size = 5):
         start_index = _cp.findIndex(self.contour, self.start)
         duo_list = []
@@ -220,7 +223,7 @@ class Path():
                 point1 = (int(points[counter1][0]), int(points[counter1][1]))
                 point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
                 duo_list.append([point1, point2])
-                middle.append((int((point2[0]+point1[0])/2), int((point1[1]+point2[1])/2)))
+                middle.append((int((point1[0]+point2[0])/2), int((point1[1]+point2[1])/2)))
                 counter2 = best['index']
             counter1 += step_size
         ## Flip array
@@ -250,11 +253,12 @@ class Path():
                 middle.append((int((point2[0] + point1[0]) / 2), int((point1[1] + point2[1]) / 2)))
                 counter2 = best['index']
             counter1 += step_size
-        return duo_list, middle
+        return duo_list[:-1], middle[:-1]
     def generate_trajectory2D_rev3(self, Markers, marker_size_pixel, marker_size_error, step_size = 5):
         start_index = _cp.findIndex(self.contour, self.start)
         duo_list = []
         middle = []
+        distance_list = []
         ## Reorder array
         array = _cp.getPointArray(self.contour)
         points = array.tolist()
@@ -280,33 +284,40 @@ class Path():
                 point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
                 duo_list.append([point1, point2])
                 middle.append((int((point2[0]+point1[0])/2), int((point1[1]+point2[1])/2)))
+                distance_list.append(best['cost'])
                 counter2 = best['index']
             counter1 += step_size
-        ## Flip array
-        points.reverse()
-        counter1 = 0
-        counter2 = len(points) - 1
-        while counter2 > counter1:
-            best = {'index': counter2, 'cost': 99999}
-            near_marker = False
-            for marker in Markers:
-                distance = -cv2.pointPolygonTest(marker.contour, (points[counter1][0], points[counter1][1]),
-                                                 measureDist=True)
-                if distance < marker_size_pixel * marker_size_error: near_marker = True
-            if near_marker:
-                pass
-            else:
-                for i in range(counter1 + int((counter2 - counter1) / 2), counter2):
-                    near_marker = False
-                    for marker in Markers:
-                        distance = -cv2.pointPolygonTest(marker.contour, (points[i][0], points[i][1]), measureDist=True)
-                        if distance < marker_size_pixel * marker_size_error: near_marker = True
-                    candidate = {'index': i, 'cost': euclidean(points[i], points[counter1])}
-                    if candidate['cost'] < best['cost'] and not near_marker: best = candidate
-                point1 = (int(points[counter1][0]), int(points[counter1][1]))
-                point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
-                duo_list.append([point1, point2])
-                middle.append((int((point2[0] + point1[0]) / 2), int((point1[1] + point2[1]) / 2)))
-                counter2 = best['index']
-            counter1 += step_size
-        return duo_list, middle
+        # Sample middle of path to get path width (assume pixel = distance)
+        path_width = distance_list[int(len(distance_list)/2)] / step_size
+        path_width = int(path_width/2) # ?????????????????
+        if path_width == 0: path_width = 1 # Avoid [:0] happen
+        self.waypoints = middle[:-path_width]
+        self.duo_list = duo_list[:-path_width]
+        return self.duo_list, self.waypoints
+    def generate_trajectory3D(self, src, min_height, max_height, gradient_crop_ratio, min_intensity_range): # Use points to sample intensity
+        if self.waypoints == None or self.duo_list == None:
+            print("Generate 2D trajectory first!")
+            return 0
+        self.waypoints3D = []
+        intensity_buffer = []
+        for (x, y) in self.waypoints: intensity_buffer.append(src[y][x])
+        height_range = max_height - min_height
+        hist, bins = np.histogram(intensity_buffer, 256, [0, 256])
+        cdf = hist.cumsum()
+        #     print(cdf)
+        cdf_max = cdf[-1]
+        cdf_thresh_min = int(cdf_max * (1 - gradient_crop_ratio) / 2)
+        cdf_thresh_max = int(cdf_max * (1 + gradient_crop_ratio) / 2)
+        sorted_intensity = sorted(intensity_buffer)
+        intensity_thresh_min = sorted_intensity[cdf_thresh_min]
+        intensity_thresh_max = sorted_intensity[cdf_thresh_max]
+        intensity_range = intensity_thresh_max - intensity_thresh_min
+        if intensity_range < min_intensity_range: z_buffer = [-1 for i in range(len(self.waypoints))] # This is not gradient (z=-1 -> Hold height)
+        else:
+            z_buffer = []
+            for intensity in intensity_buffer:
+                if intensity <= intensity_thresh_min: z_buffer.append(min_height)
+                elif intensity >= intensity_thresh_max: z_buffer.append(max_height)
+                else: z_buffer.append((intensity - intensity_thresh_min) * (height_range) / intensity_range + min_height)
+        for i, (x, y) in enumerate(self.waypoints): self.waypoints3D.append((x, y, z_buffer[i]))
+        return self.waypoints3D
