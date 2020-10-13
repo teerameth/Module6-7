@@ -65,9 +65,9 @@ class ContourProcessor():
         buffer = []
         areas = []
         for c in cnts:
-            ##################################################################################
+            ########################################################################################
             ### Minimum area of path contour limited at minimum path width * minimum path length ###
-            ##################################################################################
+            ########################################################################################
             area = cv2.contourArea(c)
             if area < (self.image_resolution / self.image_size * self.min_path_width)*(self.image_resolution / self.image_size * self.min_path_length): continue
             ###################################################################################
@@ -139,18 +139,174 @@ class ContourProcessor():
                 best = candidate
                 distanceMin = distance
         return tuple(best)
+    def findIndex(self, c, point):
+        array = self.getPointArray(c)
+        for i in range(len(array)):
+            if point[0] == array[i][0] and point[1] == array[i][1]: return i
+        return -1
+
 _cp = ContourProcessor()
 
 class Marker():
     def __init__(self, c):
         self.contour = c
         self.center = _cp.findContourCenter(c)
+        self.bbox = cv2.boundingRect(self.contour)
     def getImage(self, img):
         return four_point_transform(img, _cp.getPointArray(self.contour))
-
 
 class Path():
     def __init__(self, c):
         self.contour = c
     def set_start(self, point):
         self.start = point
+    def generate_trajectory2D(self, Markers, marker_size_pixel, marker_size_error, step_size = 5):
+        start_index = _cp.findIndex(self.contour, self.start)
+        ## Reorder array
+        array = _cp.getPointArray(self.contour)
+        points = array.tolist()
+        points = points[start_index:] + points[0:start_index]
+        counter1 = 0
+        counter2 = len(points) - 1
+        duo_list = []
+        middle = []
+        while counter2 > counter1:
+            best = {'index':counter2, 'cost':99999}
+            near_marker = False
+            for marker in Markers:
+                distance = -cv2.pointPolygonTest(marker.contour, (points[counter1][0], points[counter1][1]), measureDist=True)
+                if distance < marker_size_pixel*marker_size_error: near_marker = True
+            if near_marker: pass
+            else:
+                for i in range(counter1 + int((counter2 - counter1)/2), counter2):
+                    near_marker = False
+                    for marker in Markers:
+                        distance = -cv2.pointPolygonTest(marker.contour, (points[i][0], points[i][1]), measureDist=True)
+                        if distance < marker_size_pixel * marker_size_error: near_marker = True
+                    candidate = {'index': i, 'cost': euclidean(points[i], points[counter1])}
+                    if candidate['cost'] < best['cost'] and not near_marker: best = candidate
+                point1 = (int(points[counter1][0]), int(points[counter1][1]))
+                point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
+                duo_list.append([point1, point2])
+                middle.append((int((point2[0]+point1[0])/2), int((point1[1]+point2[1])/2)))
+                counter2 = best['index']
+            counter1 += step_size
+        return duo_list, middle
+    def generate_trajectory2D_rev2(self, Markers, marker_size_pixel, marker_size_error, step_size = 5):
+        start_index = _cp.findIndex(self.contour, self.start)
+        duo_list = []
+        middle = []
+        ## Reorder array
+        array = _cp.getPointArray(self.contour)
+        points = array.tolist()
+        points = points[start_index:] + points[0:start_index]
+        counter1 = 0
+        counter2 = len(points) - 1
+        while counter2 > counter1:
+            best = {'index':counter2, 'cost':99999}
+            near_marker = False
+            for marker in Markers:
+                distance = -cv2.pointPolygonTest(marker.contour, (points[counter1][0], points[counter1][1]), measureDist=True)
+                if distance < marker_size_pixel*marker_size_error: near_marker = True
+            if near_marker: pass
+            else:
+                for i in range(counter1 + int((counter2 - counter1)/2), counter2):
+                    near_marker = False
+                    for marker in Markers:
+                        distance = -cv2.pointPolygonTest(marker.contour, (points[i][0], points[i][1]), measureDist=True)
+                        if distance < marker_size_pixel * marker_size_error: near_marker = True
+                    candidate = {'index': i, 'cost': euclidean(points[i], points[counter1])}
+                    if candidate['cost'] < best['cost'] and not near_marker: best = candidate
+                point1 = (int(points[counter1][0]), int(points[counter1][1]))
+                point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
+                duo_list.append([point1, point2])
+                middle.append((int((point2[0]+point1[0])/2), int((point1[1]+point2[1])/2)))
+                counter2 = best['index']
+            counter1 += step_size
+        ## Flip array
+        points.reverse()
+        counter1 = 0
+        counter2 = len(points) - 1
+        while counter2 > counter1:
+            best = {'index': counter2, 'cost': 99999}
+            near_marker = False
+            for marker in Markers:
+                distance = -cv2.pointPolygonTest(marker.contour, (points[counter1][0], points[counter1][1]),
+                                                 measureDist=True)
+                if distance < marker_size_pixel * marker_size_error: near_marker = True
+            if near_marker:
+                pass
+            else:
+                for i in range(counter1 + int((counter2 - counter1) / 2), counter2):
+                    near_marker = False
+                    for marker in Markers:
+                        distance = -cv2.pointPolygonTest(marker.contour, (points[i][0], points[i][1]), measureDist=True)
+                        if distance < marker_size_pixel * marker_size_error: near_marker = True
+                    candidate = {'index': i, 'cost': euclidean(points[i], points[counter1])}
+                    if candidate['cost'] < best['cost'] and not near_marker: best = candidate
+                point1 = (int(points[counter1][0]), int(points[counter1][1]))
+                point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
+                duo_list.append([point1, point2])
+                middle.append((int((point2[0] + point1[0]) / 2), int((point1[1] + point2[1]) / 2)))
+                counter2 = best['index']
+            counter1 += step_size
+        return duo_list, middle
+    def generate_trajectory2D_rev3(self, Markers, marker_size_pixel, marker_size_error, step_size = 5):
+        start_index = _cp.findIndex(self.contour, self.start)
+        duo_list = []
+        middle = []
+        ## Reorder array
+        array = _cp.getPointArray(self.contour)
+        points = array.tolist()
+        points = points[start_index:] + points[0:start_index]
+        counter1 = 0
+        counter2 = len(points) - 1
+        while counter2 > counter1:
+            best = {'index':counter2, 'cost':99999}
+            near_marker = False
+            for marker in Markers:
+                distance = -cv2.pointPolygonTest(marker.contour, (points[counter1][0], points[counter1][1]), measureDist=True)
+                if distance < marker_size_pixel*marker_size_error: near_marker = True
+            if near_marker: pass
+            else:
+                for i in range(counter1 + int((counter2 - counter1)/2), counter2):
+                    near_marker = False
+                    for marker in Markers:
+                        distance = -cv2.pointPolygonTest(marker.contour, (points[i][0], points[i][1]), measureDist=True)
+                        if distance < marker_size_pixel * marker_size_error: near_marker = True
+                    candidate = {'index': i, 'cost': euclidean(points[i], points[counter1])}
+                    if candidate['cost'] < best['cost'] and not near_marker: best = candidate
+                point1 = (int(points[counter1][0]), int(points[counter1][1]))
+                point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
+                duo_list.append([point1, point2])
+                middle.append((int((point2[0]+point1[0])/2), int((point1[1]+point2[1])/2)))
+                counter2 = best['index']
+            counter1 += step_size
+        ## Flip array
+        points.reverse()
+        counter1 = 0
+        counter2 = len(points) - 1
+        while counter2 > counter1:
+            best = {'index': counter2, 'cost': 99999}
+            near_marker = False
+            for marker in Markers:
+                distance = -cv2.pointPolygonTest(marker.contour, (points[counter1][0], points[counter1][1]),
+                                                 measureDist=True)
+                if distance < marker_size_pixel * marker_size_error: near_marker = True
+            if near_marker:
+                pass
+            else:
+                for i in range(counter1 + int((counter2 - counter1) / 2), counter2):
+                    near_marker = False
+                    for marker in Markers:
+                        distance = -cv2.pointPolygonTest(marker.contour, (points[i][0], points[i][1]), measureDist=True)
+                        if distance < marker_size_pixel * marker_size_error: near_marker = True
+                    candidate = {'index': i, 'cost': euclidean(points[i], points[counter1])}
+                    if candidate['cost'] < best['cost'] and not near_marker: best = candidate
+                point1 = (int(points[counter1][0]), int(points[counter1][1]))
+                point2 = (int(points[best['index']][0]), int(points[best['index']][1]))
+                duo_list.append([point1, point2])
+                middle.append((int((point2[0] + point1[0]) / 2), int((point1[1] + point2[1]) / 2)))
+                counter2 = best['index']
+            counter1 += step_size
+        return duo_list, middle
