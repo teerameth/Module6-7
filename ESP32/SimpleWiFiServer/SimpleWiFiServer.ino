@@ -27,8 +27,8 @@ ported for sparkfun esp32
 
 #include <WiFi.h>
 
-const char* ssid     = "fiborobotlab";
-const char* password = "fiborobot_lab";
+const char* ssid     = "A";
+const char* password = "11111111";
 
 WiFiServer server(80);
 

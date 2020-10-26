@@ -1,5 +1,5 @@
 import urllib.request
-root_url = "http://192.168.0.136"
+root_url = "http://192.168.43.140"
 def sendRequest(url):
     n = urllib.request.urlopen(url)
 while True:
