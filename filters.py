@@ -1,0 +1,10 @@
+kernel = np.ones((5,5),np.uint8)
+dilation = cv2.dilate(filtered,kernel,iterations = 1)
+erosion = cv2.erode(filtered,kernel,iterations = 1)
+opening = cv2.morphologyEx(filtered, cv2.MORPH_OPEN, kernel)
+closing = cv2.morphologyEx(filtered, cv2.MORPH_CLOSE, kernel)
+gradient = cv2.morphologyEx(filtered, cv2.MORPH_GRADIENT, kernel)
+tophat = cv2.morphologyEx(filtered, cv2.MORPH_TOPHAT, kernel)
+blackhat = cv2.morphologyEx(filtered, cv2.MORPH_BLACKHAT, kernel)
+
+imshows([filtered, dilation, erosion, opening, closing, gradient, tophat, blackhat], ["filtered", "dilation", "erosion", "opening", "closing", "gradient", "tophat", "blackhat"])
