@@ -5,6 +5,9 @@ import imutils
 from matplotlib import pyplot as plt
 colors = [(255, 255, 255), (0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 0, 255), (255, 255, 0)]
 
+def imsave(img, filename):
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    plt.savefig('./img/output/' + filename + '.png', dpi=300)
 def imshow(img):
     plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     plt.show()

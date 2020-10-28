@@ -26,6 +26,7 @@ def padding_image_gray(img, color):
     ax,ay = (s - img.shape[1])//2,(s - img.shape[0])//2 # Getting the centering position
     f[ay:img.shape[0]+ay,ax:ax+img.shape[1]] = img
     return f
+    
 class ContourProcessor():
     def set_param(self, image_resolution, image_size, marker_size, marker_size_error, min_path_length, max_path_length, min_path_width, max_path_width):
         self.image_resolution = image_resolution
@@ -37,6 +38,7 @@ class ContourProcessor():
         self.min_path_width = min_path_width
         self.max_path_width = max_path_width
         self.marker_size_pixel = image_resolution / image_size * marker_size
+        self.marker_area = self.marker_size_pixel**2
     def get_center(self, c):
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.02 * peri, True)
@@ -64,6 +66,7 @@ class ContourProcessor():
         return match
     def get_marker_contours(self, cnts):
         buffer = []
+        trash = []
         for i, c in enumerate(cnts):
             match = self.is_contour_marker(c)
             if match:
@@ -76,7 +79,8 @@ class ContourProcessor():
                     approx = cv2.approxPolyDP(c, 0.02 * peri, True)
                     buffer.append(np.array(approx, dtype=np.int32))
                     print("Match {}%".format(round(match, 2)))
-        return buffer
+            else: trash.append(c)
+        return buffer, trash
     def get_path_contours(self, cnts, Markers, frame):
         buffer = []
         areas = []
