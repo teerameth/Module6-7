@@ -3,3 +3,4 @@ pyqt5
 pyopengl
 pyqtgraph
 imutils
+opencv-contrib-python
