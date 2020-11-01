@@ -13,11 +13,9 @@ tvec = np.array([-0.0, 0.0, -0.0])
 cap = cv2.VideoCapture(1)
 cap.set(3, 1280)
 cap.set(4, 720)
-dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
 parameters =  cv2.aruco.DetectorParameters_create()
 
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=0.04, markerSeparation=0.01, dictionary=dictionary)
-
 img = board.draw(outSize=(1000, 1000))
 cv2.imshow("Marker Plane", img)
 # cv2.waitKey(0)
@@ -29,15 +27,12 @@ while True:
     if markerIds is not None:
         cv2.aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
         valid = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
-        if valid:
-            cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
-
-
-
-        # for corner, id in zip(markerCorners, markerIds):
-        #     points = [(int(point[0]), int(point[1])) for point in corner[0]]
-        #     ids = id[0]
-        #     pts = np.array(points, np.int32)
+        if valid: cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
+        for corner, id in zip(markerCorners, markerIds):
+            points = [(int(point[0]), int(point[1])) for point in corner[0]]
+            ids = id[0]
+            pts = np.array(points, np.int32)
+            cv2.fillPoly(frame, [pts], 255)
 
     cv2.imshow("Preview", frame)
     # cv2.imshow("marker33", markerImage)
