@@ -2,9 +2,9 @@
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-
-const char* ssid = "ponyslayer";
-const char* password = "unicorn123";
+#include <ESP32Servo.h>
+const char* ssid = "fiborobotlab";
+const char* password = "fiborobot_lab";
 // Note: 200cycles : 5mm.
 const int dirPinA = 25;
 const int stepPinA = 26;
@@ -12,6 +12,11 @@ const int dirPinB = 32;
 const int stepPinB = 33;
 const int proximityPin = 27;
 const int pulseDelay = 1000; // 1000 for 28byj-48, 500 for NEMA-17
+int gripper_pos = 0; 
+Servo gripper_servo;
+String valueString = String(5);
+int pos1 = 0;
+int pos2 = 0;
 
 WiFiServer server(80);
 
@@ -65,7 +70,7 @@ void setup() {
   pinMode(dirPinB,OUTPUT); 
   pinMode(stepPinB,OUTPUT);
   pinMode(proximityPin,OUTPUT);
-
+  gripper_servo.attach(14);
   server.begin();
 }
 
@@ -94,8 +99,18 @@ void loop() {
             // and a content-type so the client knows what's coming, then a blank line:
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
+            client.println("Connection: close");
             client.println();
-                   
+            // Display the HTML web page
+            client.println("<!DOCTYPE html><html>");
+            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+            client.println("<link rel=\"icon\" href=\"data:,\">");
+            // CSS to style the on/off buttons 
+            // Feel free to change the background-color and font-size attributes to fit your preferences
+            client.println("<style>body { text-align: center; font-family: \"Trebuchet MS\", Arial; margin-left:auto; margin-right:auto;}");
+            client.println(".slider { width: 300px; }</style>");
+            client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
+            
             // the content of the HTTP response follows the header:
             client.print("<a href=\"/H\">ON</a><br>");
             client.print("<a href=\"/L\">OFF</a><br>");
@@ -103,6 +118,16 @@ void loop() {
             client.print("<a href=\"/D\">DOWN</a><br>");
             client.print("<a href=\"/CW\">CLOCKWISE</a><br>");
             client.print("<a href=\"/CCW\">COUNTERCLOCKWISE</a><br>");
+            /// Servo Slider ///
+            client.println("</head><body><h1>ESP32 with Servo</h1>");
+            client.println("<p>Position: <span id=\"servoPos\"></span></p>");
+            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\""+valueString+"\"/>");
+            client.println("<script>var slider = document.getElementById(\"servoSlider\");");
+            client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
+            client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
+            client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
+            client.println("$.get(\"/?value=\" + pos + \"&\"); {Connection: close};}</script>");
+            client.println("</body></html>");
 
             client.println(); // The HTTP response ends with another blank line:
             // break out of the while loop:
@@ -121,7 +146,16 @@ void loop() {
         if (currentLine.endsWith("GET /D")) {step_drive(dirPinA, stepPinA, 1, 200);}
         if (currentLine.endsWith("GET /CW")) {step_drive(dirPinB, stepPinB, 0, 200);}
         if (currentLine.endsWith("GET /CCW")) {step_drive(dirPinB, stepPinB, 1, 200);}
-        
+        //GET /?value=180& HTTP/1.1 http://192.168.1.135/?value=180&
+        if(currentLine.indexOf("GET /?value=")>=0) {
+          pos1 = currentLine.indexOf('=');
+          pos2 = currentLine.indexOf('&');
+          valueString = currentLine.substring(pos1+1, pos2);
+              
+          //Rotate the servo
+          gripper_servo.write(valueString.toInt());
+          Serial.println(valueString);
+        }
       }
     }
     // close the connection:
