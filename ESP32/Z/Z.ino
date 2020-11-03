@@ -11,12 +11,14 @@ const int stepPinA = 26;
 const int dirPinB = 32;
 const int stepPinB = 33;
 const int proximityPin = 27;
+const int gripperServoPin = 14;
 const int pulseDelay = 1000; // 1000 for 28byj-48, 500 for NEMA-17
 int gripper_pos = 0; 
 Servo gripper_servo;
-String valueString = String(5);
-int pos1 = 0;
-int pos2 = 0;
+String valueString_gripper = String(5);
+String valueString_A = String(5);
+String valueString_B = String(5);
+int pos1 = 0;int pos2 = 0; //Just buffer for extract values from GET
 
 WiFiServer server(80);
 
@@ -70,7 +72,7 @@ void setup() {
   pinMode(dirPinB,OUTPUT); 
   pinMode(stepPinB,OUTPUT);
   pinMode(proximityPin,OUTPUT);
-  gripper_servo.attach(14);
+  gripper_servo.attach(gripperServoPin);
   server.begin();
 }
 
@@ -119,16 +121,39 @@ void loop() {
             client.print("<a href=\"/CW\">CLOCKWISE</a><br>");
             client.print("<a href=\"/CCW\">COUNTERCLOCKWISE</a><br>");
             /// Servo Slider ///
-            client.println("</head><body><h1>ESP32 with Servo</h1>");
+            client.println("</head><body><h1>Servo</h1>");
             client.println("<p>Position: <span id=\"servoPos\"></span></p>");
-            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\""+valueString+"\"/>");
-            client.println("<script>var slider = document.getElementById(\"servoSlider\");");
-            client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
-            client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
-            client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
-            client.println("$.get(\"/?value=\" + pos + \"&\"); {Connection: close};}</script>");
-            client.println("</body></html>");
+            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\""+valueString_gripper+"\"/>");
+              // Script
+              client.println("<script>var slider = document.getElementById(\"servoSlider\");");
+              client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
+              client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
+              client.println("$.get(\"/?value=\" + pos + \"&\"); {Connection: close};}</script>");
+/////////////// Stepper Slider ///////////////
+            /// Z-Linear ///
+            client.println("</head><body><h1>Z-Linear(Motor A)</h1>");
+            client.println("<p>Position: <span id=\"stepA_pos\"></span></p>");
+            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"stepA_slider\" onchange=\"servo(this.value)\" value=\""+valueString_A+"\"/>");
+              // Script
+              client.println("<script>var sliderA = document.getElementById(\"stepA_slider\");");
+              client.println("var stepA_P = document.getElementById(\"stepA_pos\"); stepA_P.innerHTML = sliderA.value;");
+              client.println("sliderA.oninput = function() { sliderA.value = this.value; stepA_P.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servoA(pos) { ");
+              client.println("$.get(\"/?valueA=\" + pos + \"&\"); {Connection: close};}</script>");
+            /// Z-Rotation ///
+            client.println("</head><body><h1>Z-Rotation (Motor B)</h1>");
+            client.println("<p>Position: <span id=\"stepB_pos\"></span></p>");
+            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"stepB_slider\" onchange=\"servo(this.value)\" value=\""+valueString_B+"\"/>");
+              // Script
+              client.println("<script>var sliderB = document.getElementById(\"stepB_slider\");");
+              client.println("var stepB_P = document.getElementById(\"stepB_pos\"); stepB_P.innerHTML = slider.value;");
+              client.println("sliderB.oninput = function() { sliderB.value = this.value; stepB_P.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servoB(pos) { ");
+              client.println("$.get(\"/?valueB=\" + pos + \"&\"); {Connection: close};}</script>");
 
+            
+            client.println("</body></html>");
             client.println(); // The HTTP response ends with another blank line:
             // break out of the while loop:
             break;
@@ -147,14 +172,29 @@ void loop() {
         if (currentLine.endsWith("GET /CW")) {step_drive(dirPinB, stepPinB, 0, 200);}
         if (currentLine.endsWith("GET /CCW")) {step_drive(dirPinB, stepPinB, 1, 200);}
         //GET /?value=180& HTTP/1.1 http://192.168.1.135/?value=180&
-        if(currentLine.indexOf("GET /?value=")>=0) {
+        if (currentLine.indexOf("GET /?value=")>=0) {
           pos1 = currentLine.indexOf('=');
           pos2 = currentLine.indexOf('&');
-          valueString = currentLine.substring(pos1+1, pos2);
+          valueString_gripper = currentLine.substring(pos1+1, pos2);
               
           //Rotate the servo
-          gripper_servo.write(valueString.toInt());
-          Serial.println(valueString);
+          gripper_servo.write(valueString_gripper.toInt());
+        }
+        if (currentLine.indexOf("GET /?valueA=")>=0) {
+          pos1 = currentLine.indexOf('=');
+          pos2 = currentLine.indexOf('&');
+          valueString_gripper = currentLine.substring(pos1+1, pos2);
+              
+          //Rotate the servo
+          gripper_servo.write(valueString_A.toInt());
+        }
+        if (currentLine.indexOf("GET /?valueB=")>=0) {
+          pos1 = currentLine.indexOf('=');
+          pos2 = currentLine.indexOf('&');
+          valueString_gripper = currentLine.substring(pos1+1, pos2);
+              
+          //Rotate the servo
+          gripper_servo.write(valueString_B.toInt());
         }
       }
     }
