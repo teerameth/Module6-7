@@ -10,10 +10,11 @@ const int dirPinA = 25;
 const int stepPinA = 26;
 const int dirPinB = 32;
 const int stepPinB = 33;
-const int proximityPin = 27;
+const int proximityPin = 27; // Active LOW
 const int gripperServoPin = 14;
 const int pulseDelay = 1000; // 1000 for 28byj-48, 500 for NEMA-17
-int gripper_pos = 0; 
+int gripper_pos = 0;
+int stepAPos = 0, stepBPos = 0;
 Servo gripper_servo;
 String valueString_gripper = String(5);
 String valueString_A = String(5);
@@ -21,7 +22,8 @@ String valueString_B = String(5);
 int pos1 = 0;int pos2 = 0; //Just buffer for extract values from GET
 
 WiFiServer server(80);
-
+void setZero();
+void stepGo(int motor, int pos);
 void setup() {
   Serial.begin(115200);
   Serial.println("Booting");
@@ -76,9 +78,9 @@ void setup() {
   server.begin();
 }
 
-void step_drive(int dirPin, int stepPin, bool dir, float cycle){
-  if(dir)digitalWrite(dirPin,HIGH);
-  else digitalWrite(dirPin,LOW);
+void step_drive(int dirPin, int stepPin, int cycle){
+  if (cycle>0)digitalWrite(dirPin,LOW);
+  else digitalWrite(dirPin,HIGH);
   for(int i = 0; i < cycle; i++) { digitalWrite(stepPin,HIGH); digitalWrite(stepPin,LOW);delayMicroseconds(pulseDelay);}
 }
 
@@ -114,6 +116,7 @@ void loop() {
             client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
             
             // the content of the HTTP response follows the header:
+            client.print("<a href=\"/R\">SET ZERO</a><br>");
             client.print("<a href=\"/H\">ON</a><br>");
             client.print("<a href=\"/L\">OFF</a><br>");
             client.print("<a href=\"/U\">UP</a><br>");
@@ -152,7 +155,6 @@ void loop() {
               client.println("$.ajaxSetup({timeout:1000}); function servoB(pos) { ");
               client.println("$.get(\"/?valueB=\" + pos + \"&\"); {Connection: close};}</script>");
 
-            
             client.println("</body></html>");
             client.println(); // The HTTP response ends with another blank line:
             // break out of the while loop:
@@ -165,12 +167,13 @@ void loop() {
         }
 
         // Check to see if the client request was "GET /H" or "GET /L":
+        if (currentLine.endsWith("GET /R")) {} // Set home of vertical axis
         if (currentLine.endsWith("GET /H")) {digitalWrite(2, HIGH);}
         if (currentLine.endsWith("GET /L")) {digitalWrite(2, LOW);}
-        if (currentLine.endsWith("GET /U")) {step_drive(dirPinA, stepPinA, 0, 200);}
-        if (currentLine.endsWith("GET /D")) {step_drive(dirPinA, stepPinA, 1, 200);}
-        if (currentLine.endsWith("GET /CW")) {step_drive(dirPinB, stepPinB, 0, 200);}
-        if (currentLine.endsWith("GET /CCW")) {step_drive(dirPinB, stepPinB, 1, 200);}
+        if (currentLine.endsWith("GET /U")) {step_drive(dirPinA, stepPinA, 200);}
+        if (currentLine.endsWith("GET /D")) {step_drive(dirPinA, stepPinA, -200);}
+        if (currentLine.endsWith("GET /CW")) {step_drive(dirPinB, stepPinB, 200);}
+        if (currentLine.endsWith("GET /CCW")) {step_drive(dirPinB, stepPinB, -200);}
         //GET /?value=180& HTTP/1.1 http://192.168.1.135/?value=180&
         if (currentLine.indexOf("GET /?value=")>=0) {
           pos1 = currentLine.indexOf('=');
@@ -203,4 +206,33 @@ void loop() {
     Serial.println("Client Disconnected.");
   }
   
+}
+void setZero(){
+  digitalWrite(dirPinA,LOW); // UP
+  while(digitalRead(proximityPin) == 0){
+    digitalWrite(stepPinA,HIGH); digitalWrite(stepPinA,LOW); delayMicroseconds(pulseDelay);
+  }
+  // Reset remembered position
+  stepAPos = 0;
+  stepBPos = 0;
+}
+void stepGo(int motor, int pos){
+  int stepPin, dirPin, delta;
+  switch(motor){
+    case 0:
+      stepPin = stepPinA;
+      dirPin = dirPinA;
+      delta = pos - stepAPos;
+      stepAPos = pos;
+      break;
+    case 1:
+      stepPin = stepPinB;
+      dirPin = dirPinB;
+      delta = pos - stepBPos;
+      stepBPos = pos;
+      break;
+    default:
+      break;
+  }
+  step_drive(dirPin, stepPin, delta);
 }
