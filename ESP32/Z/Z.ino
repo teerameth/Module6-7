@@ -3,8 +3,8 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ESP32Servo.h>
-const char* ssid = "fiborobotlab";
-const char* password = "fiborobot_lab";
+const char* ssid = "ponyslayer";
+const char* password = "unicorn123";
 // Note: 200cycles : 5mm.
 const int dirPinA = 25;
 const int stepPinA = 26;
@@ -79,9 +79,13 @@ void setup() {
 }
 
 void step_drive(int dirPin, int stepPin, int cycle){
-  if (cycle>0)digitalWrite(dirPin,LOW);
-  else digitalWrite(dirPin,HIGH);
-  for(int i = 0; i < cycle; i++) { digitalWrite(stepPin,HIGH); digitalWrite(stepPin,LOW);delayMicroseconds(pulseDelay);}
+  if (cycle>0){
+    digitalWrite(dirPin,LOW);
+  }
+  else{
+    digitalWrite(dirPin,HIGH);
+  }
+  for(int i = 0; i < abs(cycle); i++) { digitalWrite(stepPin,HIGH); digitalWrite(stepPin,LOW);delayMicroseconds(pulseDelay);}
 }
 
 void loop() {
@@ -170,10 +174,10 @@ void loop() {
         if (currentLine.endsWith("GET /R")) {} // Set home of vertical axis
         if (currentLine.endsWith("GET /H")) {digitalWrite(2, HIGH);}
         if (currentLine.endsWith("GET /L")) {digitalWrite(2, LOW);}
-        if (currentLine.endsWith("GET /U")) {step_drive(dirPinA, stepPinA, 200);}
-        if (currentLine.endsWith("GET /D")) {step_drive(dirPinA, stepPinA, -200);}
-        if (currentLine.endsWith("GET /CW")) {step_drive(dirPinB, stepPinB, 200);}
-        if (currentLine.endsWith("GET /CCW")) {step_drive(dirPinB, stepPinB, -200);}
+        if (currentLine.endsWith("GET /U")) {step_drive(dirPinA, stepPinA, 200);stepAPos+=200;}
+        if (currentLine.endsWith("GET /D")) {step_drive(dirPinA, stepPinA, -200);stepAPos-=200;}
+        if (currentLine.endsWith("GET /CW")) {step_drive(dirPinB, stepPinB, 100);stepBPos+=100;}
+        if (currentLine.endsWith("GET /CCW")) {step_drive(dirPinB, stepPinB, -100);stepBPos-=100;}
         //GET /?value=180& HTTP/1.1 http://192.168.1.135/?value=180&
         if (currentLine.indexOf("GET /?value=")>=0) {
           pos1 = currentLine.indexOf('=');
@@ -186,18 +190,14 @@ void loop() {
         if (currentLine.indexOf("GET /?valueA=")>=0) {
           pos1 = currentLine.indexOf('=');
           pos2 = currentLine.indexOf('&');
-          valueString_gripper = currentLine.substring(pos1+1, pos2);
-              
-          //Rotate the servo
-          gripper_servo.write(valueString_A.toInt());
+          valueString_A = currentLine.substring(pos1+1, pos2);
+          stepGo(0, valueString_A.toInt());
         }
         if (currentLine.indexOf("GET /?valueB=")>=0) {
           pos1 = currentLine.indexOf('=');
           pos2 = currentLine.indexOf('&');
-          valueString_gripper = currentLine.substring(pos1+1, pos2);
-              
-          //Rotate the servo
-          gripper_servo.write(valueString_B.toInt());
+          valueString_B = currentLine.substring(pos1+1, pos2);
+          stepGo(1, valueString_B.toInt());
         }
       }
     }
