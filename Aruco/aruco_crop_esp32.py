@@ -54,7 +54,7 @@ def drawBox(frame, rvec, tvec, size = 0.4):
     cv2.line(frame, tuple(imgpts[2+4].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
     cv2.line(frame, tuple(imgpts[3+4].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2) 
 import urllib.request
-stream = urllib.request.urlopen('http://192.168.43.239/')
+stream = urllib.request.urlopen('http://192.168.0.116/')
 bytes = b''
 while True:
     bytes += stream.read(1024)

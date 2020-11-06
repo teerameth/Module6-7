@@ -34,10 +34,8 @@ markerLength = 0.04
 markerSeparation = 0.01
 # board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=0.039, markerSeparation=0.0975, dictionary=dictionary) # real
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
-# img = board.draw(outSize=(1000, 1000))
-# cv2.imshow("Marker Plane", img)
-# cv2.imwrite("MarkerPlane.png", img)
-
+# backSub = cv2.createBackgroundSubtractorMOG2()
+backSub = cv2.createBackgroundSubtractorKNN()
 def drawBox(frame, rvec, tvec, size = 0.4):
     objpts = np.float32([[0,0,0], [1,0,0], [1,1,0], [0,1,0],
                          [0,0,1], [1,0,1], [1,1,1], [0,1,1]]).reshape(-1,3) * size
@@ -60,6 +58,7 @@ def drawBox(frame, rvec, tvec, size = 0.4):
 
 while True:
     _, frame = cap.read()
+    original = frame.copy()
     markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
     if markerIds is not None:
         ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
@@ -90,12 +89,15 @@ while True:
         #     pts = np.array(points, np.int32)
         #     cv2.fillPoly(frame, [pts], 255)
         ## Perspective Crop ##
-        warped = four_point_transform(frame, pts)
+        warped = four_point_transform(original, pts)
         warped = cv2.resize(warped, (800, 800))
-        valid_mask = four_point_transform(np.ones(frame.shape[:2], dtype="uint8") * 255, pts)
+        valid_mask = four_point_transform(np.ones(original.shape[:2], dtype="uint8") * 255, pts)
         valid_mask = cv2.resize(valid_mask, (800, 800))
         cv2.imshow("Warped", warped)
         cv2.imshow("Valid", valid_mask)
+        fgMask = backSub.apply(warped)
+        fgMask -= 255-valid_mask
+        cv2.imshow('FG Mask', fgMask)
     cv2.imshow("Preview", frame)
     # cv2.imshow("marker33", markerImage)
     key = cv2.waitKey(1)
