@@ -86,10 +86,13 @@ while True:
         #     ids = id[0]
         #     pts = np.array(points, np.int32)
         #     cv2.fillPoly(frame, [pts], 255)
-        ## Perspective Crop
+        ## Perspective Crop ##
         warped = four_point_transform(frame, pts)
-        warped = cv2.resize(warped, (500, 500))
+        warped = cv2.resize(warped, (800, 800))
+        valid_mask = four_point_transform(np.ones(frame.shape[:2], dtype="uint8") * 255, pts)
+        valid_mask = cv2.resize(valid_mask, (800, 800))
         cv2.imshow("Warped", warped)
+        cv2.imshow("Valid", valid_mask)
     cv2.imshow("Preview", frame)
     # cv2.imshow("marker33", markerImage)
     key = cv2.waitKey(1)
