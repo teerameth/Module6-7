@@ -17,15 +17,15 @@ dist = np.array([[0.06895705411990097, -0.9617085061810868, -0.00333722265444165
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
 
-# cap = cv2.VideoCapture(cv2.CAP_DSHOW)
-# codec = 0x47504A4D  # MJPG
-# cap.set(cv2.CAP_PROP_FPS, 30.0)
-# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
-# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
-# cap.set(3, 1920)
-# cap.set(4, 1080)
+cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+codec = 0x47504A4D  # MJPG
+cap.set(cv2.CAP_PROP_FPS, 30.0)
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+cap.set(3, 1920)
+cap.set(4, 1080)
 
-cap = cv2.VideoCapture("B.mp4")
+# cap = cv2.VideoCapture("B.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
 # markerLength=0.039 # real
@@ -34,8 +34,8 @@ markerLength = 0.04
 markerSeparation = 0.01
 # board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=0.039, markerSeparation=0.0975, dictionary=dictionary) # real
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
-# backSub = cv2.createBackgroundSubtractorMOG2(history=30, varThreshold=16, detectShadows=True)
-backSub = cv2.createBackgroundSubtractorKNN(history=30, dist2Threshold=400.0, detectShadows=True)
+backSub = cv2.createBackgroundSubtractorMOG2(history=300, varThreshold=16, detectShadows=True)
+# backSub = cv2.createBackgroundSubtractorKNN(history=30, dist2Threshold=400.0, detectShadows=True)
 def drawBox(frame, rvec, tvec, size = 0.4):
     objpts = np.float32([[0,0,0], [1,0,0], [1,1,0], [0,1,0],
                          [0,0,1], [1,0,1], [1,1,1], [0,1,1]]).reshape(-1,3) * size
@@ -102,6 +102,9 @@ while True:
         fgMask = backSub.apply(cv2.GaussianBlur(warped,(5,5),0))
         fgMask -= 255-valid_mask
         cv2.imshow('FG Mask', fgMask)
+        bg = backSub.getBackgroundImage()
+        cv2.imshow('BG', bg)
+        
     cv2.imshow("Preview", frame)
     # cv2.imshow("marker33", markerImage)
     key = cv2.waitKey(1)
