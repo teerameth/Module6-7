@@ -17,15 +17,15 @@ dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.00418705203966778
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
 
-cap = cv2.VideoCapture(cv2.CAP_DSHOW)
-codec = 0x47504A4D  # MJPG
-cap.set(cv2.CAP_PROP_FPS, 30.0)
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
-cap.set(3, 1920)
-cap.set(4, 1080)
+# cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+# codec = 0x47504A4D  # MJPG
+# cap.set(cv2.CAP_PROP_FPS, 30.0)
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+# cap.set(3, 1920)
+# cap.set(4, 1080)
 
-# cap = cv2.VideoCapture("B.mp4")
+cap = cv2.VideoCapture("A.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
 # markerLength=0.039 # real
@@ -71,7 +71,7 @@ while True:
             B = np.array([0.4 + markerSeparation, 0.0, 0.0]) + T_marker
             C = np.array([0.4 + markerSeparation, 0.4 + markerSeparation, 0.0]) + T_marker
             D = np.array([0.0, 0.4 + markerSeparation, 0.0]) + T_marker
-            ### Find Transformatio Matrix ###
+            ### Find Transformation Matrix ###
             rotM = np.zeros(shape=(3,3))
             cv2.Rodrigues(rvec, rotM, jacobian = 0)
             ### Map to image coordinate ###

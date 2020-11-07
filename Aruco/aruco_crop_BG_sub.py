@@ -3,29 +3,29 @@ import numpy as np
 import math
 from transform import four_point_transform, order_points
 dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
-markerImage = np.zeros((200, 200), dtype=np.uint8)
-markerImage = cv2.aruco.drawMarker(dictionary, 38, 200, markerImage, 1)
+# markerImage = np.zeros((200, 200), dtype=np.uint8)
+# markerImage = cv2.aruco.drawMarker(dictionary, 38, 200, markerImage, 1)
 # cv2.imshow("marker33", markerImage)
 # cv2.waitKey(0)
 
-# cameraMatrix = np.array([[1438.4337197221366, 0.0, 934.4226787746103], [0.0, 1437.7513778197347, 557.7771398018671], [0.0, 0.0, 1.0]], np.float32) # Module
-cameraMatrix = np.array([[1361.3720519541948, 0.0, 988.234800503673], [0.0, 1358.359480587064, 528.3772257989573], [0.0, 0.0, 1.0]], np.float32) # Humanoid
+cameraMatrix = np.array([[1430.4798932831916, 0.0, 919.793593267191], [0.0, 1429.5119845386027, 570.9534919974565], [0.0, 0.0, 1.0]], np.float32) # Module
+# cameraMatrix = np.array([[1361.3720519541948, 0.0, 988.234800503673], [0.0, 1358.359480587064, 528.3772257989573], [0.0, 0.0, 1.0]], np.float32) # Humanoid
 # cameraMatrix = np.array([[852.6434105992806, 0.0, 398.3286136737032], [0.0, 860.8765484709088, 302.00038413294385], [0.0, 0.0, 1.0]], np.float32) # ESP32
-# dist = np.array([[0.07229278436610362, -0.5836205675336522, 0.0003932499370206642, 0.0002754754987376089, 1.7293977700105942]]) # Module
-dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.0041870520396677805, 0.007599954530058233, -0.4722284261198788]]) # Humanoid
+dist = np.array([[0.06895705411990097, -0.9617085061810868, -0.0033372226544416596, -0.00036649375857501104, 3.4072884355893542]]) # Module
+# dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.0041870520396677805, 0.007599954530058233, -0.4722284261198788]]) # Humanoid
 # dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.0041870520396677805, 0.007599954530058233, -0.4722284261198788]]) # ESP32
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
 
-cap = cv2.VideoCapture(cv2.CAP_DSHOW)
-codec = 0x47504A4D  # MJPG
-cap.set(cv2.CAP_PROP_FPS, 30.0)
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
-cap.set(3, 1920)
-cap.set(4, 1080)
+# cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+# codec = 0x47504A4D  # MJPG
+# cap.set(cv2.CAP_PROP_FPS, 30.0)
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+# cap.set(3, 1920)
+# cap.set(4, 1080)
 
-# cap = cv2.VideoCapture("B.mp4")
+cap = cv2.VideoCapture("B.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
 # markerLength=0.039 # real
@@ -34,8 +34,8 @@ markerLength = 0.04
 markerSeparation = 0.01
 # board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=0.039, markerSeparation=0.0975, dictionary=dictionary) # real
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
-# backSub = cv2.createBackgroundSubtractorMOG2()
-backSub = cv2.createBackgroundSubtractorKNN()
+# backSub = cv2.createBackgroundSubtractorMOG2(history=30, varThreshold=16, detectShadows=True)
+backSub = cv2.createBackgroundSubtractorKNN(history=30, dist2Threshold=400.0, detectShadows=True)
 def drawBox(frame, rvec, tvec, size = 0.4):
     objpts = np.float32([[0,0,0], [1,0,0], [1,1,0], [0,1,0],
                          [0,0,1], [1,0,1], [1,1,1], [0,1,1]]).reshape(-1,3) * size
@@ -46,15 +46,19 @@ def drawBox(frame, rvec, tvec, size = 0.4):
     cv2.line(frame, tuple(imgpts[2].ravel()), tuple(imgpts[3].ravel()), (0,0,255), 2)
     cv2.line(frame, tuple(imgpts[3].ravel()), tuple(imgpts[0].ravel()), (0,0,255), 2)
 
-    cv2.line(frame, tuple(imgpts[0].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2)
-    cv2.line(frame, tuple(imgpts[1].ravel()), tuple(imgpts[1+4].ravel()), (0,0,255), 2)
-    cv2.line(frame, tuple(imgpts[2].ravel()), tuple(imgpts[2+4].ravel()), (0,0,255), 2)
-    cv2.line(frame, tuple(imgpts[3].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[0].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[1].ravel()), tuple(imgpts[1+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[2].ravel()), tuple(imgpts[2+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[3].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
 
-    cv2.line(frame, tuple(imgpts[0+4].ravel()), tuple(imgpts[1+4].ravel()), (0,0,255), 2)
-    cv2.line(frame, tuple(imgpts[1+4].ravel()), tuple(imgpts[2+4].ravel()), (0,0,255), 2)
-    cv2.line(frame, tuple(imgpts[2+4].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
-    cv2.line(frame, tuple(imgpts[3+4].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2) 
+    # cv2.line(frame, tuple(imgpts[0+4].ravel()), tuple(imgpts[1+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[1+4].ravel()), tuple(imgpts[2+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[2+4].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
+    # cv2.line(frame, tuple(imgpts[3+4].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2) 
+# _, frame = cap.read()
+# h,  w = frame.shape[:2]
+# cameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, dist, (w,h), 1, (w,h))
+
 
 while True:
     _, frame = cap.read()
@@ -83,11 +87,11 @@ while True:
             # drawBox(frame, rvec, tvec + np.dot(A, rotM.T), size=0.4 + markerSeparation)
 
         ## Fill Marker ##
-        # for corner, id in zip(markerCorners, markerIds):
-        #     points = [(int(point[0]), int(point[1])) for point in corner[0]]
-        #     ids = id[0]
-        #     pts = np.array(points, np.int32)
-        #     cv2.fillPoly(frame, [pts], 255)
+        for corner, id in zip(markerCorners, markerIds):
+            points = [(int(point[0]), int(point[1])) for point in corner[0]]
+            ids = id[0]
+            pts1 = np.array(points, np.int32)
+            cv2.fillPoly(frame, [pts1], 255)
         ## Perspective Crop ##
         warped = four_point_transform(original, pts)
         warped = cv2.resize(warped, (800, 800))
@@ -95,7 +99,7 @@ while True:
         valid_mask = cv2.resize(valid_mask, (800, 800))
         cv2.imshow("Warped", warped)
         cv2.imshow("Valid", valid_mask)
-        fgMask = backSub.apply(warped)
+        fgMask = backSub.apply(cv2.GaussianBlur(warped,(5,5),0))
         fgMask -= 255-valid_mask
         cv2.imshow('FG Mask', fgMask)
     cv2.imshow("Preview", frame)
