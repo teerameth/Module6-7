@@ -9,10 +9,10 @@ markerImage = cv2.aruco.drawMarker(dictionary, 38, 200, markerImage, 1)
 # cv2.waitKey(0)
 
 # cameraMatrix = np.array([[1438.4337197221366, 0.0, 934.4226787746103], [0.0, 1437.7513778197347, 557.7771398018671], [0.0, 0.0, 1.0]], np.float32) # Module
-cameraMatrix = np.array([[1361.3720519541948, 0.0, 988.234800503673], [0.0, 1358.359480587064, 528.3772257989573], [0.0, 0.0, 1.0]], np.float32) # Humanoid
+cameraMatrix = np.array([[1395.3709390074625, 0.0, 984.6248356317226], [0.0, 1396.2122002126725, 534.9517311724618], [0.0, 0.0, 1.0]], np.float32) # Humanoid
 # cameraMatrix = np.array([[852.6434105992806, 0.0, 398.3286136737032], [0.0, 860.8765484709088, 302.00038413294385], [0.0, 0.0, 1.0]], np.float32) # ESP32
 # dist = np.array([[0.07229278436610362, -0.5836205675336522, 0.0003932499370206642, 0.0002754754987376089, 1.7293977700105942]]) # Module
-dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.0041870520396677805, 0.007599954530058233, -0.4722284261198788]]) # Humanoid
+dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449, 0.004428959364733587, 0.06865838341764481]]) # Humanoid
 # dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.0041870520396677805, 0.007599954530058233, -0.4722284261198788]]) # ESP32
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
@@ -28,6 +28,7 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 cap = cv2.VideoCapture("A.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
+parameters.cornerRefinementMethod = 2
 # markerLength=0.039 # real
 # markerSeparation=0.0975 # real
 markerLength = 0.04
@@ -61,10 +62,13 @@ def drawBox(frame, rvec, tvec, size = 0.4):
 while True:
     _, frame = cap.read()
     markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+    # try:
+    #     rvecs, tvecs, markerPoints = cv2.aruco.estimatePoseSingleMarkers(markerCorners, 0.05, cameraMatrix, dist)
+    #     for i in range(len(markerCorners)): cv2.aruco.drawAxis(frame, cameraMatrix, dist, rvecs[i], tvecs[i], 0.1)
+    # except: pass
     if markerIds is not None:
         ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
         if ret:
-            
             # cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1) # origin
             T_marker = np.array([markerLength, markerLength, 0.0])
             A = np.array([0.0, 0.0, 0.0]) + T_marker
@@ -74,28 +78,31 @@ while True:
             ### Find Transformation Matrix ###
             rotM = np.zeros(shape=(3,3))
             cv2.Rodrigues(rvec, rotM, jacobian = 0)
+            rotM = rotM.T
             ### Map to image coordinate ###
             pts, jac = cv2.projectPoints(np.float32([A, B, C, D]).reshape(-1,3), rvec, tvec, cameraMatrix, dist)
             pts = np.array([tuple(pts[i].ravel()) for i in range(4)], dtype = "float32")
             pts = order_points(pts)
             ### Draw axis ###
-            for point in [A, B, C, D]: cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec + np.dot(point, rotM.T), length=0.1)
+            for point in [A, B, C, D]: cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec + np.dot(point, rotM), length=0.1)
             ### Draw work space ###
             # drawBox(frame, rvec, tvec + np.dot(A, rotM.T), size=0.4 + markerSeparation)
 
         ## Fill Marker ##
-        # for corner, id in zip(markerCorners, markerIds):
-        #     points = [(int(point[0]), int(point[1])) for point in corner[0]]
-        #     ids = id[0]
-        #     pts = np.array(points, np.int32)
-        #     cv2.fillPoly(frame, [pts], 255)
+        for corner, id in zip(markerCorners, markerIds):
+            points = [(int(point[0]), int(point[1])) for point in corner[0]]
+            ids = id[0]
+            pts1 = np.array(points, np.int32)
+            cv2.fillPoly(frame, [pts1], 255)
         ## Perspective Crop ##
-        warped = four_point_transform(frame, pts)
-        warped = cv2.resize(warped, (800, 800))
-        valid_mask = four_point_transform(np.ones(frame.shape[:2], dtype="uint8") * 255, pts)
-        valid_mask = cv2.resize(valid_mask, (800, 800))
-        cv2.imshow("Warped", warped)
-        cv2.imshow("Valid", valid_mask)
+        try:
+            warped = four_point_transform(frame, pts)
+            warped = cv2.resize(warped, (800, 800))
+            valid_mask = four_point_transform(np.ones(frame.shape[:2], dtype="uint8") * 255, pts)
+            valid_mask = cv2.resize(valid_mask, (800, 800))
+            cv2.imshow("Warped", warped)
+            cv2.imshow("Valid", valid_mask)
+        except: pass
     cv2.imshow("Preview", frame)
     # cv2.imshow("marker33", markerImage)
     key = cv2.waitKey(1)

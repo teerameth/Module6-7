@@ -49,7 +49,7 @@
 
 
 #define FCY      40000000
-#define BAUDRATE 19200             
+#define BAUDRATE 115200             
 #define BRGVAL   ((FCY/BAUDRATE)/16)-1 
 
 //********************************************************************************
@@ -66,10 +66,7 @@ void cfgUart1(void)
 	U1MODEbits.STSEL = 0;			// 1-stop bit
 	U1MODEbits.PDSEL = 0;			// No Parity, 8-data bits
 	U1MODEbits.ABAUD = 0;			// Autobaud Disabled
-
 	U1BRG = BRGVAL;					// BAUD Rate Setting for 9600
-
-
 	//********************************************************************************
 	//  STEP 1:
 	//  Configure UART for DMA transfers
@@ -77,20 +74,14 @@ void cfgUart1(void)
 	U1STAbits.UTXISEL0 = 0;			// Interrupt after one Tx character is transmitted
 	U1STAbits.UTXISEL1 = 0;			                            
 	U1STAbits.URXISEL  = 0;			// Interrupt after one RX character is received
-
-	
 	//********************************************************************************
 	//  STEP 2:
 	//  Enable UART Rx and Tx
 	//********************************************************************************/
 	U1MODEbits.UARTEN   = 1;		// Enable UART
 	U1STAbits.UTXEN     = 1;		// Enable UART Tx
-
-
 	IEC4bits.U1EIE = 0;
 }
-
-
 // DMA0 configuration
 void cfgDma0UartTx(void)
 {
@@ -117,7 +108,6 @@ void cfgDma0UartTx(void)
 	DMA0CONbits.DIR   = 1;
 	DMA0CONbits.SIZE  = 0;
 	DMA0CNT = 7;						// 8 DMA requests
-
 	//********************************************************************************
 	//  STEP 6:
 	// Associate one buffer with Channel 0 for one-shot operation
@@ -130,7 +120,6 @@ void cfgDma0UartTx(void)
 	//********************************************************************************/
 	IFS0bits.DMA0IF  = 0;			// Clear DMA Interrupt Flag
 	IEC0bits.DMA0IE  = 1;			// Enable DMA interrupt
-
 }
 
 // DMA1 configuration
