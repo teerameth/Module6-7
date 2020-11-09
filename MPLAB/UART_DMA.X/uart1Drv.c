@@ -49,15 +49,15 @@
 
 
 #define FCY      40000000
-#define BAUDRATE 19200             
+#define BAUDRATE 115200             
 #define BRGVAL   ((FCY/BAUDRATE)/16)-1 
 
 //********************************************************************************
 //  STEP 6:
 //  Allocate two buffers for DMA transfers
 //********************************************************************************/
-unsigned int BufferA[8] __attribute__((space(dma)));
-unsigned int BufferB[8] __attribute__((space(dma)));
+unsigned int BufferA[10] __attribute__((space(dma)));
+unsigned int BufferB[10] __attribute__((space(dma)));
 
 
 // UART Configuration
@@ -193,7 +193,7 @@ void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void)
 
 void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void)
 {   
-    DMA0STA = __builtin_dmaoffset(BufferA); // Point DMA 0 to data to be transmitted
+    DMA0STA = __builtin_dmaoffset(int[10] {0, 9, 8, 7, , 5, 4, 3, 2, 1}); // Point DMA 0 to data to be transmitted
 
 	DMA0CONbits.CHEN  = 1;			// Re-enable DMA0 Channel
 	DMA0REQbits.FORCE = 1;			// Manual mode: Kick-start the first transfer

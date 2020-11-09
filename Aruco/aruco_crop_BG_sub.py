@@ -8,10 +8,10 @@ dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
 # cv2.imshow("marker33", markerImage)
 # cv2.waitKey(0)
 
-# cameraMatrix = np.array([[1430.4798932831916, 0.0, 919.793593267191], [0.0, 1429.5119845386027, 570.9534919974565], [0.0, 0.0, 1.0]], np.float32) # Module
+# cameraMatrix = np.array([[1438.4337197221366, 0.0, 934.4226787746103], [0.0, 1437.7513778197347, 557.7771398018671], [0.0, 0.0, 1.0]], np.float32) # Module
 cameraMatrix = np.array([[1395.3709390074625, 0.0, 984.6248356317226], [0.0, 1396.2122002126725, 534.9517311724618], [0.0, 0.0, 1.0]], np.float32) # Humanoid
 # cameraMatrix = np.array([[852.6434105992806, 0.0, 398.3286136737032], [0.0, 860.8765484709088, 302.00038413294385], [0.0, 0.0, 1.0]], np.float32) # ESP32
-# dist = np.array([[0.06895705411990097, -0.9617085061810868, -0.0033372226544416596, -0.00036649375857501104, 3.4072884355893542]]) # Module
+# dist = np.array([[0.07229278436610362, -0.5836205675336522, 0.0003932499370206642, 0.0002754754987376089, 1.7293977700105942]]) # Module
 dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449, 0.004428959364733587, 0.06865838341764481]]) # Humanoid
 # dist = np.array([[0.02220329099612066, 0.13530759611493004, -0.0041870520396677805, 0.007599954530058233, -0.4722284261198788]]) # ESP32
 rvec = np.array([0.0, 0.0, 0.0]) # float only
@@ -25,7 +25,7 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 # cap.set(3, 1920)
 # cap.set(4, 1080)
 
-cap = cv2.VideoCapture("A.mp4")
+cap = cv2.VideoCapture("F.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)
@@ -59,8 +59,8 @@ def drawBox(frame, rvec, tvec, size = 0.4):
 # _, frame = cap.read()
 # h,  w = frame.shape[:2]
 # cameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, dist, (w,h), 1, (w,h))
-
-
+i=0
+mode = True
 while True:
     _, frame = cap.read()
     original = frame.copy()
@@ -100,16 +100,23 @@ while True:
         valid_mask = cv2.resize(valid_mask, (800, 800))
         cv2.imshow("Warped", warped)
         cv2.imshow("Valid", valid_mask)
-        fgMask = backSub.apply(cv2.GaussianBlur(warped,(5,5),0))
-        fgMask += 255-valid_mask
-        cv2.imshow('FG Mask', fgMask)
-        bg = backSub.getBackgroundImage()
-        cv2.imshow('BG', bg)
+        
+        if mode:
+            fgMask = backSub.apply(cv2.GaussianBlur(warped,(5,5),0))
+            fgMask += 255-valid_mask
+            cv2.imshow('FG Mask', fgMask)
+            bg = backSub.getBackgroundImage()
+            cv2.imshow('BG', bg)
         
     cv2.imshow("Preview", frame)
     # cv2.imshow("marker33", markerImage)
     key = cv2.waitKey(1)
     if key == 27:
         break
+    if key == ord('m'):
+        mode = not mode
+    if key == ord('c'):
+        cv2.imwrite(str(i) + ".jpg", warped)
+        i+=1
 cap.release()
 cv2.destroyAllWindows()

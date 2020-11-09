@@ -1,6 +1,6 @@
-opencv-python
-pyqt5
-pyopengl
-pyqtgraph
-imutils
+opencv-python==4.4.0.40
+numpy==1.17.4
 opencv-contrib-python
+imutils
+pyserial
+matplotlib

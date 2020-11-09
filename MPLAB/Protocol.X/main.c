@@ -20,7 +20,9 @@ extern volatile char uart1_rcvd_char;
 //flag indicating char has been rcvd
 extern volatile char uart1_rcvd;
 
-
+void send(){
+    DMA0CNT = 3; //N-1
+}
 void initGPIO()
 {
     AD1PCFGL = 0xFFFF;          //set analog input to digital pin
@@ -59,46 +61,26 @@ void initPLL()
 
 
 int main(int argc, char** argv) {
-
-    
     __builtin_disable_interrupts();
-    
     initPLL();
-    
     initGPIO();
-    
     __builtin_write_OSCCONL(OSCCON & 0xBF); // to clear IOLOCK
-    
-    
     // Assign U1TX to RP6, Pin 15
     RPOR2bits.RP5R = 3;
     // Assign U1RX to RP5, Pin 14
     RPINR18bits.U1RXR = 6;
-    
     __builtin_write_OSCCONL(OSCCON | 0x40); // to set IOLOCK
-    
     
     T1CONbits.TCKPS = 0b01; //set timer prescaler to 1:8
     PR1 = 5000;             //set period to 1 ms
     _T1IE = 1;              //enable interrupt for timer1
     _T1IP = 3;              //set interrupt priority to 3 
-    
-    //OpenUART1();
-    
-   
-    
      /*enable global interrupt*/
     __builtin_enable_interrupts();
-    
-    //This routine Configures DMAchannel 0 for transmission.	
-	cfgDma0UartTx();
-
-	//This routine Configures DMAchannel 1 for reception.
-	cfgDma1UartRx();
-
+	cfgDma0UartTx();//This routine Configures DMAchannel 0 for transmission.
+	cfgDma1UartRx();//This routine Configures DMAchannel 1 for reception.
 	// UART Configurations
      cfgUart1();
-     
     T1CONbits.TON =1;            //enable timer1
     
     while(1){
@@ -106,11 +88,8 @@ int main(int argc, char** argv) {
             millis = 0;
             //printf("1 sec\n");
             LATBbits.LATB2 ^= 1;            //toggle RB0
-            
             LATAbits.LATA0 ^=1;
-            
         }
     }
-    
     return (EXIT_SUCCESS);
 }

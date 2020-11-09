@@ -1,22 +1,7 @@
-/* 
- * File:   uart_dma_main.c
- * Author: Luck
- *
- * Created on October 28, 2020, 11:34 PM
- */
-
-
 #include "xc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "configuration.h"
-
-
-/*
- * 
- */
-
-
 
 #define FCY = 40008571
 volatile uint64_t millis = 0;

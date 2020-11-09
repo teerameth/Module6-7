@@ -26,7 +26,7 @@ def padding_image_gray(img, color):
     ax,ay = (s - img.shape[1])//2,(s - img.shape[0])//2 # Getting the centering position
     f[ay:img.shape[0]+ay,ax:ax+img.shape[1]] = img
     return f
-    
+
 class ContourProcessor():
     def set_param(self, image_resolution, image_size, marker_size, marker_size_error, min_path_length, max_path_length, min_path_width, max_path_width):
         self.image_resolution = image_resolution
@@ -164,9 +164,58 @@ class ContourProcessor():
         for i in range(len(array)):
             if point[0] == array[i][0] and point[1] == array[i][1]: return i
         return -1
-    def findTemplate(self):
-        pass
+    def findTemplate(self, image, template_raw):
+        template_original = cv2.cvtColor(template_raw, cv2.COLOR_BGR2GRAY)
+        template_original = cv2.Canny(template_original, 50, 200)
+        (tH, tW) = template_original.shape[:2]
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        found = None
+        for rotation in range(0, 359, 5):
+            resized = image
+            template = rotate_image(template_original, rotation)
+            r = gray.shape[1] / float(resized.shape[1])
+            edged = cv2.Canny(resized, 50, 200)
+            result = cv2.matchTemplate(edged, template, cv2.TM_CCOEFF)
+            (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
+            if visualize:
+                clone = np.dstack([edged, edged, edged])
+                cv2.rectangle(clone, (maxLoc[0], maxLoc[1]), (maxLoc[0] + tW, maxLoc[1] + tH), (0, 0, 255), 2)
+                cv2.imshow("Template", template)
+                cv2.imshow("Visualize", clone)
+                cv2.waitKey(10)
+            if found is None or maxVal > found[0]:
+                found = (maxVal, maxLoc, r)
+        (_, maxLoc, r) = found
+        (startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
+        (endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
+        cv2.rectangle(image, (startX, startY), (endX, endY), (0, 0, 255), 2) # draw a bounding box around the detected result and display the image
+        # imshow(image)
+        return ((startX, startY), (endX, endY))
+    def findTemplateMarker(self, imageSet_raw, template_raw)
+        imageSet_gray = [cv2.cvtColor(img.copy(), cv2.COLOR_BGR2GRAY) for img in imageSet_raw]
+        imageSet_canny = [cv2.Canny(img, 50, 200) for img in imageSet_gray]
+        template_gray = cv2.cvtColor(template_raw.copy(), cv2.COLOR_BGR2GRAY)
+        template_canny = cv2.Canny(template_gray, 50, 200)
+        (tH, tW) = template_canny.shape[:2]
+        ### Padding ###
+        imageSet = [padding_image(img) for img in imageSet_canny]
+        best = {"index":None, "score":0}
+        for i in range(len(imageSet)): best[str(i)] = 0
+        for rotation in range(0, 359, step):
+            rotated_template = rotate_image(template.copy(), rotation)
+            for i in range(len(imageSet)):
+                result = cv2.matchTemplate(imageSet[i], template, cv2.TM_CCOEFF) # Get score (for cv2.TM_CCOEFF more mean better)
+                (_, score, _, _) = cv2.minMaxLoc(result)
+                if score > best["score"]:
+                    best["index"] = i
+                    best["score"] = score
+                if score > best[str(i)]: best[str(i)] = score
+        print(best)
+        best_index = int(best["index"])
+        best_score = best[str(best_index)]
+        return(best["index"])
 
+template = padding(template_canny)
 _cp = ContourProcessor()
 
 class Marker():
