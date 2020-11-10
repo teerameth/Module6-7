@@ -576,6 +576,7 @@ int main(void) {
                             printf("Instruction 1\n");
                             break;
                         case 2: //Read(x, y)
+                            readPosition();
                             printf("Instruction 2\n");
                             break;
                         case 3: //Write (x, y)
@@ -585,9 +586,11 @@ int main(void) {
                             printf("Instruction 4\n");
                             break;
                         case 5: // Home
+                            setHome();
                             printf("Instruction 5\n");
                             break;
                         case 7: // Motion
+                            circularMotion(2)
                             printf("Instruction 7\n");
                             break;
                         default:
