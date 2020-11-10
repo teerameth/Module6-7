@@ -111,26 +111,7 @@ float Q_dot_t;
 int path_mode;
 float phi;
 
-
 int n  = 1;
-
-
-
-void initPLL()
-{
-    PLLFBD = 150;           // M  = 152
-    CLKDIVbits.PLLPRE = 5;  // N1 = 7
-    CLKDIVbits.PLLPOST = 0; // N2 = 2
-    OSCTUN = 0;             // Tune FRC oscillator, if FRC is used
-    
-    // Clock switching to incorporate PLL
-    __builtin_write_OSCCONH(0x01);    // Initiate Clock Switch to FRCPLL
-    // Oscillator with PLL (NOSC=0b011)
-    __builtin_write_OSCCONL(0x01);    // Start clock switching
-
-    while (OSCCONbits.COSC != 0b001); // Wait for Clock switch to occur
-    while (OSCCONbits.LOCK!=1) {};    // Wait for PLL to lock
-}
 
 int numByte;
 uint8_t dataArray[10], stack[20];
@@ -252,7 +233,6 @@ void circularMotion(int nf){
     {
         n++;
     }
-    
 }
 void setup(){
      __builtin_disable_interrupts();
@@ -317,43 +297,34 @@ void setup(){
     DFLT2CONbits.QECK = 0b000;          // clock divider Fcy/1
     DFLT2CONbits.QEOUT = 1;             // enable filter
 
-
      __builtin_enable_interrupts();
  
     T3CONbits.TON =1;            //enable timer3
     AD1PCFGL = 0xFFFF;// set digital pin
     TRISB = 0x1FC1;
-    TRISA = 0xFFFF; 
-
-
+    TRISA = 0xFFFF;
 }
 
 void motorY(int speed)
 {
-    if (speed>100)
-    {
+    if (speed>100){
         speed = 100;
     }
-    if (speed < -100)
-    {
+    if (speed < -100){
         speed = -100;
     }
     if(speed > 0){
         _LATB15 = 1; //A1
         _LATB13 = 0; //B1
     }
-    else if(speed < 0)
-    {
+    else if(speed < 0){
         _LATB15 = 0; //A1
         _LATB13 = 1; //B1
-
     }
-    else
-    {
+    else{
         _LATB15 = 0; //A1
         _LATB13 = 0; //B1        
     }
-
     speed = abs(speed);
     unsigned long pwm = speed*((unsigned long)PR3);
     pwm /= 100;
@@ -383,7 +354,6 @@ void motorX(int speed)
     {
         _LATB2 = 0; //A1
         _LATB3 = 0; //B1
-        
     }
 
     speed = abs(speed);
