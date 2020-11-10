@@ -115,7 +115,8 @@ int n  = 1;
 
 int numByte;
 uint8_t dataArray[10], stack[20];
-uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum;
+uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum, circular_nf;
+bool circle_running = false;
 
 void initPLL() // Set Fcy to 40 MHz
 {
@@ -179,13 +180,13 @@ void writeTrajectory(float Tf, float C1, float C2, float C3, float C4, float X0,
 //        theta = 0.588;
 }
 void setHome(){
-    while(!_RA4)
+    while(_RB12)
     {
         motorX(-30);//-19
     }
     motorX(0);
     
-    while(!_RB12)
+    while(_RB11)
     {
         motorY(-25);//1
     }
@@ -236,6 +237,9 @@ void circularMotion(int nf){
     if((t > (tf1*n)+3) && n < nf)
     {
         n++;
+        if(n > nf){
+            circle_running = false;
+        }
     }
 }
 void setup(){
@@ -514,7 +518,7 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
 void __attribute__((interrupt,no_auto_psv)) _T2Interrupt(void)
 {
     //numByte = UART1_ReadBuffer(dataArray, 10);
-    printf("w = :%f:%f:%f:%f:%f:%f:\n",t,(float)POS1CNT*81.6/(3413.0*2.0),(float)POS2CNT*81.6/(3413.0*2.0)  ,setpoint_y, vel_y ,x2_y);
+//    printf("w = :%f:%f:%f:%f:%f:%f:\n",t,(float)POS1CNT*81.6/(3413.0*2.0),(float)POS2CNT*81.6/(3413.0*2.0)  ,setpoint_y, vel_y ,x2_y);
      _T2IF =0 ;  //clear interrupt flag
 
 }
@@ -551,7 +555,7 @@ int main(void) {
                     printf("stackSize = %d\n", stackSize);
                     printf("startIndex = %d\n", startIndex);
                     if(stackSize - startIndex > packetLength+2){ // Packet complete -> Move to next step
-//                        printf("packetLength = %d\n", packetLength);
+                        printf("packetLength = %d\n", packetLength);
                         uart_state = 2;
                         break;
                     }
@@ -577,38 +581,45 @@ int main(void) {
                 case 3: // Call function
                     switch(stack[startIndex+3]){ //Instruction (ParameterN is at startIndex+3+N)
                         case 1: //Ping
-                            printf("Instruction 1\n");
+//                            printf("Instruction 1\n");
                             break;
                         case 2: //Read(x, y)
                             readPosition();
-                            printf("Instruction 2\n");
+//                            printf("Instruction 2\n");
                             break;
                         case 3: //Write (x, y)
-                            writePosition(200,200){
-                            printf("Instruction 3\n");
+                            writePosition(256*stack[startIndex+4] + stack[startIndex+5],256*stack[startIndex+6] + stack[startIndex+7]);
+//                            printf("Instruction 3\n");
                             break;
                         case 4: //Write Trajectory
-                            printf("Instruction 4\n");
+//                            printf("Instruction 4\n");
                             break;
                         case 5: // Home
                             setHome();
-                            printf("Instruction 5\n");
+//                            printf("Instruction 5\n");
                             break;
-                        case 7: // Motion
-                            circularMotion(2)
-                            printf("Instruction 7\n");
+                        case 7: // Motion 0=Circular
+                            if(stack[startIndex+4] == 0){
+                                circle_running = true;
+                                circular_nf = stack[startIndex+5];
+                            }
+//                            printf("Instruction 7\n");
                             break;
                         default:
-                            printf("Unknown Instruction\n");
+//                            printf("Unknown Instruction\n");
+                            Nop();
                     }
-                    printf("stackSize = %d\n", stackSize);
-                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+//                    printf("stackSize = %d\n", stackSize);
+//                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
                     shift_buffer(startIndex+packetLength+3, &stack, sizeof(stack));//Clear used stack
                     stackSize -= startIndex+packetLength+3;
-                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
-                    printf("stackSize = %d\n", stackSize);
+//                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+//                    printf("stackSize = %d\n", stackSize);
                     uart_state = 0;
             }
+        }
+        if(circle_running){
+            circularMotion(circular_nf);
         }
     }
     return 0;
