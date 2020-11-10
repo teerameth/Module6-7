@@ -160,17 +160,38 @@ void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to t
     }
 }
 void readPosition(){
-    
+    float cur_pos_x = (float)POS1CNT*81.6/(3413.0*2.0);
+    float cir_pos_y = (float)POS2CNT*81.6/(3413.0*2.0);
 }
-void writePosition(int x, int y){
+void writePosition(float x, float y){
     // Acknowledge
     // Move
     // Report
 }
-void writeTrajectory(int a, int b, int c, int d, int e, int f, int g, int h){
+void writeTrajectory(float Tf, float C1, float C2, float C3, float C4, float X0, float Y0, float Theta){
+    tf = Tf;
+    c1 = C1;
+    c2 = C2;
+    c3 = C3;
+    c4 = C4;
+    x0 = X0;
+    y0 = Y0;
+    theta = Theta;
+    path_mode = 0;
+    ti = 0;
     // Acknowledge
     // Move
     // Report
+
+
+    //        ti = 0;
+//        c1 = 0;
+//        c2 = 0;
+//        c3 = 43.266;
+//        c4 = -5.7688;
+//        x0 = 0;
+//        y0 = 0;
+//        theta = 0.588;
 }
 void setHome(){
     while(!_RA4)
@@ -387,25 +408,6 @@ void delay()
 
 void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
 {  
-//        ti = 0;
-//        c1 = 0;
-//        c2 = 0;
-//        c3 = 43.266;
-//        c4 = -5.7688;
-//        x0 = 0;
-//        y0 = 0;
-//        theta = 0.588;
-        //------------ linear -----
-//        ti = 5;  
-//        c1 = 0;
-//        c2 = 0;
-//        c3 = 0.1884;
-//        c4 = -0.0125;
-//        r = 100;
-//        x0 = 200;
-//        y0 = 200;
-        //----------- circle -------
-
     //-----------------------trajectory
     if(t < tf)
     {
