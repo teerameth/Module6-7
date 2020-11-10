@@ -28,10 +28,10 @@ void initPLL() // Set Fcy to 40 MHz
     while (OSCCONbits.COSC != 0b001); // Wait for Clock switch to occur
     while (OSCCONbits.LOCK!=1) {};    // Wait for PLL to lock
 }
-void shift_buffer(int n, uint8_t *buffer){ // Shift buffer to the left N times
+void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to the left N times
     int i, j;
     for(i=0;i<n;i++){
-        for(j=0;j<sizeof(buffer)-1;j++){
+        for(j=0;j<buffer_size-1;j++){
             buffer[j] = buffer[j+1];
         }
     }
@@ -104,7 +104,11 @@ int main(void) {
                     break;
                 case 1:
                     packetLength = stack[startIndex+2];
+                    printf("packetLength = %d\n", packetLength);
+                    printf("stackSize = %d\n", stackSize);
+                    printf("startIndex = %d\n", startIndex);
                     if(stackSize - startIndex > packetLength+2){ // Packet complete -> Move to next step
+//                        printf("packetLength = %d\n", packetLength);
                         uart_state = 2;
                         break;
                     }
@@ -115,6 +119,7 @@ int main(void) {
                     checksum = ~checksum;
                     
                     if(stack[startIndex+packetLength+2] == checksum){ // Checksum correct
+                        printf("Checksum Passed!\n");
                         uart_state = 3;
                         break;
                     }
@@ -122,29 +127,40 @@ int main(void) {
                         // Checksum error
                         printf("Checksum Error!\n");
 //                        for (i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
-                        shift_buffer(startIndex+1, stack);
+                        shift_buffer(startIndex+1, stack, sizeof(stack));
+                        stackSize -= startIndex+1;
                         break;
                     }
                 case 3: // Call function
                     switch(stack[startIndex+3]){ //Instruction (ParameterN is at startIndex+3+N)
                         case 1: //Ping
-                            
+                            printf("Instruction 1\n");
                             break;
                         case 2: //Read(x, y)
+                            printf("Instruction 2\n");
                             break;
                         case 3: //Write (x, y)
+                            printf("Instruction 3\n");
                             break;
                         case 4: //Write Trajectory
+                            printf("Instruction 4\n");
                             break;
                         case 5: // Home
+                            printf("Instruction 5\n");
                             break;
                         case 7: // Motion
+                            printf("Instruction 7\n");
                             break;
                         default:
                             printf("Unknown Instruction\n");
                     }
-                    shift_buffer(startIndex+packetLength+3, stack);//Clear used stack
+                    printf("stackSize = %d\n", stackSize);
+                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+                    shift_buffer(startIndex+packetLength+3, &stack, sizeof(stack));//Clear used stack
                     stackSize -= startIndex+packetLength+3;
+                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+                    printf("stackSize = %d\n", stackSize);
+                    uart_state = 0;
             }
         }
     }
