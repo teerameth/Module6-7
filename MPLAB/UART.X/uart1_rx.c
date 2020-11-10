@@ -145,6 +145,10 @@ void readPosition(){
     float cir_pos_y = (float)POS2CNT*81.6/(3413.0*2.0);
 }
 void writePosition(float x, float y){
+    setpoint_x = x;
+    setpoint_y = y;
+    setpoint_vel_x = 0;
+    setpoint_vel_y = 0;
     // Acknowledge
     // Move
     // Report
@@ -580,6 +584,7 @@ int main(void) {
                             printf("Instruction 2\n");
                             break;
                         case 3: //Write (x, y)
+                            writePosition(200,200){
                             printf("Instruction 3\n");
                             break;
                         case 4: //Write Trajectory
