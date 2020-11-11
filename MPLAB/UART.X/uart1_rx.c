@@ -206,7 +206,7 @@ void askHome(){
     // Report
 }
 void circularMotion(int nf){
-    float tf1 = 15;
+    float tf1 = 6.28;
     if(t<3)
     {
         ti = 0;
@@ -219,27 +219,53 @@ void circularMotion(int nf){
         theta = 1.53;
         path_mode = 0;
         tf = 3;  
-    }   
-    else if(t < (tf1*n)+3)
+    }  
+    else if(t<8 && t>3)
     {
-        ti = (tf1*(n-1))+3;  
         c1 = 0;
         c2 = 0;
-        c3 = -0.0837;
-        c4 = 0.00372;
+        c3 = -0.17699;
+        c4 = 0.0102;
+        r = 130;
         phi = PI;
+        ti = 3;
+        x0 = 140;
+        y0 = 250;
+        path_mode = 1;
+        tf = 8;  
+    } 
+    else if((t < (tf1*n)+8) && n <= nf && t > 8)
+    {
+        ti = (tf1*(n-1))+8;  
+        c1 = 0;
+        c2 = -1;
+        c3 = 0;
+        c4 = 0;
+        phi = 0;
         r = 130;
         x0 = 140;
         y0 = 250;
         path_mode = 1;
-        tf = (tf1*n)+3; 
+        tf = (tf1*n)+8; 
     }
-    if((t > (tf1*n)+3) && n < nf)
+    
+    else if((t < (tf1*n)+8) && n > nf && t > 8)
+    {
+        ti = (tf1*(n-1))+8; 
+        c1 = 0;
+        c2 = -1;
+        c3 = 0.023;
+        c4 = 0.0102;
+        r = 130;
+        phi = 0;
+        x0 = 140;
+        y0 = 250;
+        path_mode = 1;
+        tf = (tf1*n)+8;
+    }
+    if((t > (tf1*n)+8) && n <= nf)
     {
         n++;
-        if(n > nf){
-            circle_running = false;
-        }
     }
 }
 void setup(){
@@ -311,6 +337,24 @@ void setup(){
     AD1PCFGL = 0xFFFF;// set digital pin
     TRISB = 0x1FC1;
     TRISA = 0xFFFF;
+}
+float read_posX()
+{
+    float pos_x = (float)POS1CNT*81.6/(3413.0*2.0);
+    if(pos_x < 0)
+    {
+        pos_x = 0;
+    }
+    return pos_x;
+}
+float read_posY()
+{
+    float pos_y = (float)POS2CNT*81.6/(3413.0*2.0);
+    if(pos_y < 0)
+    {
+        pos_y = 0;
+    }
+    return pos_y;
 }
 
 void motorY(int speed)
@@ -386,7 +430,6 @@ void delay()
 
 void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
 {  
-    //-----------------------trajectory
     if(t < tf)
     {
         Q_t =c1 + c2 *(t-ti) + c3*(t-ti)*(t-ti) + c4*(t-ti)*(t-ti)*(t-ti);
@@ -404,13 +447,13 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
         { 
             setpoint_x = (x0+r*cos(Q_t+phi));
             setpoint_y = (y0+r*sin(Q_t+phi));
-            vel_x = (-r*sin(Q_t)*Q_dot_t);
-            vel_y = r*cos(Q_t)*Q_dot_t;
+            vel_x = (-r*sin(Q_t+phi)*Q_dot_t);
+            vel_y = r*cos(Q_t+phi)*Q_dot_t;
         }
     }
     //---------------------- x axis control --------------------------
 
-    cur_theta_x = (float)POS1CNT*81.6/(3413.0*2.0);
+    cur_theta_x = read_posX();
     w_inKalman_x = (cur_theta_x-prev_theta_x)/CON_T;    
     
     Q_x = sigma_a_x*sigma_a_x;
@@ -436,7 +479,7 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
     x2_x = x2_new_x;
 
 
-    feedback_x = (float)POS1CNT*81.6/(3413.0*2.0);
+    feedback_x = read_posX();
     new_error_x = setpoint_x - feedback_x;
     i_term_x += new_error_x;
     d_term_x = new_error_x-prev_err_x;
@@ -461,7 +504,7 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
 
     //---------------------------- y axis control -------------------------
     
-    cur_theta_y = (float)POS2CNT*81.6/(3413.0*2.0);
+    cur_theta_y = read_posY();
     w_inKalman_y = (cur_theta_y-prev_theta_y)/CON_T;    
     
     Q_y = sigma_a_y*sigma_a_y;
@@ -487,7 +530,7 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
     x2_y = x2_new_y;
 
     // pos control
-    feedback_y = (float)POS2CNT*81.6/(3413.0*2.0);
+    feedback_y = read_posY();
     new_error_y = setpoint_y - feedback_y;
     i_term_y += new_error_y;
     d_term_y = new_error_y-prev_err_y;
