@@ -67,7 +67,8 @@ robot.connect()
 #         break
 #     time.sleep(1)
 robot.set_home()
-robot.writePosition(200, 250)
+robot.circular_motion(30)
+# robot.writePosition(200, 250)
 # x, y = robot.readPosition()
 # packet = [255, 255, 3, 5, 0]
 # robot.apply_checksum(packet)
