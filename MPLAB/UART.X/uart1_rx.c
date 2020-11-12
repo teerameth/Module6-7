@@ -268,6 +268,92 @@ void circularMotion(int nf){
         n++;
     }
 }
+void recMotion(int nf){
+    if(t<4)
+    {
+        ti = 0;
+        c1 = 0;
+        c2 = 0;
+        c3 = 22.6779;
+        c4 = -3.7629;
+        x0 = 0;
+        y0 = 0;
+        theta = 1.487;
+        path_mode = 0;
+        tf = 4;  
+    }
+    else if(t<8 && t > 4)
+    {
+        ti = 4;
+        c1 = 0;
+        c2 = 0;
+        c3 = 48.75;
+        c4 = -8.125;
+        x0 = 10;
+        y0 = 120;
+        theta = 0;
+        path_mode = 0;
+        tf = 8;  
+    }
+    else if(t<12 && t > 8)
+    {
+        ti = 8;
+        c1 = 0;
+        c2 = 0;
+        c3 = 48.75;
+        c4 = -8.125;
+        x0 = 270;
+        y0 = 120;
+        theta = PI/2;
+        path_mode = 0;
+        tf = 12;  
+    }
+    else if(t<16 && t > 12)
+    {
+        ti = 12;
+        c1 = 0;
+        c2 = 0;
+        c3 = 48.75;
+        c4 = -8.125;
+        x0 = 270;
+        y0 = 380;
+        theta = PI;
+        path_mode = 0;
+        tf = 16;  
+    }
+    else if(t<20 && t > 16)
+    {
+        ti = 16;
+        c1 = 0;
+        c2 = 0;
+        c3 = 48.75;
+        c4 = -8.125;
+        x0 = 10;
+        y0 = 380;
+        theta = -PI/2;
+        path_mode = 0;
+        tf = 20;  
+    }
+    if(t>20 && n < nf)
+    {
+        n++;
+        t = 4;
+        ti = 4;
+        c1 = 0;
+        c2 = 0;
+        c3 = 48.75;
+        c4 = -8.125;
+        x0 = 10;
+        y0 = 120;
+        theta = 0;
+        path_mode = 0;
+        tf = 8; 
+    }
+    if(t>20 && n <= nf)
+    {
+        n++;
+    }
+}
 void setup(){
      __builtin_disable_interrupts();
      initPLL();
