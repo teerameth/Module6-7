@@ -4,3 +4,5 @@ opencv-contrib-python
 imutils
 pyserial
 matplotlib
+scipy
+scikit-image

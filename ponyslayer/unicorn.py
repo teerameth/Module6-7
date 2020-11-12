@@ -191,7 +191,7 @@ class ContourProcessor():
         cv2.rectangle(image, (startX, startY), (endX, endY), (0, 0, 255), 2) # draw a bounding box around the detected result and display the image
         # imshow(image)
         return ((startX, startY), (endX, endY))
-    def findTemplateMarker(self, imageSet_raw, template_raw)
+    def findTemplateMarker(self, imageSet_raw, template_raw):
         imageSet_gray = [cv2.cvtColor(img.copy(), cv2.COLOR_BGR2GRAY) for img in imageSet_raw]
         imageSet_canny = [cv2.Canny(img, 50, 200) for img in imageSet_gray]
         template_gray = cv2.cvtColor(template_raw.copy(), cv2.COLOR_BGR2GRAY)
@@ -215,7 +215,7 @@ class ContourProcessor():
         best_score = best[str(best_index)]
         return(best["index"])
 
-template = padding(template_canny)
+# template = padding_image(template_canny)
 _cp = ContourProcessor()
 
 class Marker():

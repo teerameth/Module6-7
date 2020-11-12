@@ -1,9 +1,10 @@
 from __future__ import print_function
 import cv2
+import numpy as np
 import imutils
 import argparse
 max_value = 255
-max_value_H = 360//2
+max_value_H = 255
 low_H = 0
 low_S = 0
 low_V = 0
@@ -65,7 +66,7 @@ cv2.createTrackbar(high_S_name, window_detection_name , high_S, max_value, on_hi
 cv2.createTrackbar(low_V_name, window_detection_name , low_V, max_value, on_low_V_thresh_trackbar)
 cv2.createTrackbar(high_V_name, window_detection_name , high_V, max_value, on_high_V_thresh_trackbar)
 # image = cv2.imread("Picture1.png")
-image = cv2.imread("Real5.png")
+image = cv2.imread("Real4.png")
 image = cv2.medianBlur(image,5)
 cv2.imshow("A", image)
 image = cv2.bilateralFilter(image,9,75,75)
@@ -80,16 +81,17 @@ while True:
         break
     frame_HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    H, S, V = cv2.split(frame_HSV)
+    # H, S, V = cv2.split(frame_HSV)
+    # H = cv2.equalizeHist(H)
     # S = cv2.equalizeHist(S)
     # V = cv2.equalizeHist(V)
-    frame_HSV = cv2.merge((H, S, V))
+    # frame_HSV = cv2.merge((H, S, V))
 
-    frame_threshold = cv2.inRange(frame_HSV, (low_H, low_S, low_V), (high_H, high_S, high_V))
-
+    edges = cv2.Canny(frame,low_H,high_H)
     cv2.imshow(window_capture_name, frame)
-    cv2.imshow(window_detection_name, frame_threshold)
-    
+    cv2.imshow(window_detection_name, edges)
+
+
     key = cv2.waitKey(30)
     if key == ord('q') or key == 27:
         break
