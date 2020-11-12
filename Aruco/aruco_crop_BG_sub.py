@@ -25,7 +25,7 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 # cap.set(3, 1920)
 # cap.set(4, 1080)
 
-cap = cv2.VideoCapture("F.mp4")
+cap = cv2.VideoCapture("../G.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)
@@ -35,8 +35,10 @@ markerLength = 0.04
 markerSeparation = 0.01
 # board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=0.039, markerSeparation=0.0975, dictionary=dictionary) # real
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
-backSub = cv2.createBackgroundSubtractorMOG2(history=300, varThreshold=16, detectShadows=True)
+backSub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=16, detectShadows=False)
 # backSub = cv2.createBackgroundSubtractorKNN(history=30, dist2Threshold=400.0, detectShadows=True)
+img_list, mask_list = [], []
+
 def drawBox(frame, rvec, tvec, size = 0.4):
     objpts = np.float32([[0,0,0], [1,0,0], [1,1,0], [0,1,0],
                          [0,0,1], [1,0,1], [1,1,1], [0,1,1]]).reshape(-1,3) * size
@@ -60,6 +62,7 @@ def drawBox(frame, rvec, tvec, size = 0.4):
 # h,  w = frame.shape[:2]
 # cameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, dist, (w,h), 1, (w,h))
 i=0
+frame_counter = 0
 mode = True
 while True:
     _, frame = cap.read()
@@ -100,11 +103,26 @@ while True:
         valid_mask = cv2.resize(valid_mask, (800, 800))
         cv2.imshow("Warped", warped)
         cv2.imshow("Valid", valid_mask)
-        
-        if mode:
-            fgMask = backSub.apply(cv2.GaussianBlur(warped,(5,5),0))
-            fgMask += 255-valid_mask
+
+        frame_counter += 1
+        if mode and frame_counter%1==0:
+            if frame_counter < 1000:
+                mean_canvas = np.ones(warped.shape, dtype="uint8") * 200
+                mean_canvas = cv2.bitwise_or(mean_canvas, mean_canvas, mask=cv2.bitwise_not(valid_mask))
+            else:
+                mean_canvas = cv2.bitwise_or(bg, bg, mask=cv2.bitwise_not(valid_mask))
+            valid_mask = cv2.bitwise_or(warped, warped, mask=valid_mask)
+            final = cv2.bitwise_or(mean_canvas, valid_mask)
+            cv2.imshow('Passed', final)
+
+            fgMask = backSub.apply(cv2.GaussianBlur(final,(5,5),0))
+            fgMask = cv2.morphologyEx(fgMask, cv2.MORPH_CLOSE, kernel=np.ones((5,5),np.uint8))
+            # fgMask += 255-valid_mask
             cv2.imshow('FG Mask', fgMask)
+
+            # img_list.append(warped)
+            # mask_list.append(fgMask)
+
             bg = backSub.getBackgroundImage()
             cv2.imshow('BG', bg)
         
@@ -115,8 +133,12 @@ while True:
         break
     if key == ord('m'):
         mode = not mode
-    if key == ord('c'):
+    if key == ord(' '):
         cv2.imwrite(str(i) + ".jpg", warped)
         i+=1
+    if key == ord('g'):
+        result = calculateBG(img_list, mask_list)
+        cv2.imshow("BG", result)
+        cv2.waitKey(0)
 cap.release()
 cv2.destroyAllWindows()
