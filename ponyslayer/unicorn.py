@@ -366,7 +366,7 @@ class Path():
         self.duo_list = duo_list[:-path_width]
         return self.duo_list, self.waypoints
     def generate_trajectory3D(self, src, min_height, max_height, gradient_crop_ratio, min_intensity_range): # Use points to sample intensity
-        if self.waypoints == None or self.duo_list == None:
+        if self.waypoints == None:
             print("Generate 2D trajectory first!")
             return 0
         self.waypoints3D = []

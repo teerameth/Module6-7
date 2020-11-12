@@ -43,7 +43,7 @@ def imdraws_color(cnts, frame, mode = 0, size = 1, show = True):
 def immask(c, frame):
     mask = np.ones(frame.shape[:2], dtype="uint8") * 255
     cv2.drawContours(mask, [c], 0, 0, -1)
-    return mask
+    return 255 - mask
 def immasks(cnts, frame, show = True):
     mask = np.ones(frame.shape[:2], dtype="uint8") * 255
     cv2.drawContours(mask, cnts, -1, 0, -1)
