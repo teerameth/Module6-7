@@ -8,7 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, imshow, axis
 from matplotlib.image import imread
-from transform import order_points
+try: from transform import order_points
+except: from ponyslayer.transform import order_points
 np.set_printoptions(suppress=True, linewidth=200) # Better printing of arrays
 plt.rcParams['image.cmap'] = 'jet' # Default colormap is jet
 
@@ -244,7 +245,7 @@ def getBestLines(img_warped):
     scores_y = np.array([np.sum(score_y[pts]) for pts in a])
     # 15x15 grid, so along an axis a set of 7, and an internal 7 at that, so 13x13 grid, 7x7 possibility inside
     # We're also using a 1-padded grid so 17x17 grid
-    # We only want the internal choices (13-7) so 6x6 possible options in the 13x13 
+    # We only want the internal choices (13-7) so 6x6 possible options in the 13x13 
     # so 2,3,4,5,6,7,8 to 8,9,10,11,12,13,14 ignoring 0,1 and 15,16,17
     best_lines_x = a[scores_x.argmax()]
     best_lines_y = a[scores_y.argmax()]
@@ -364,6 +365,9 @@ def processSingle(img):
         plt.show()
 
 def getChessContour(img):
+    blurred = cv2.GaussianBlur(img, (5, 5), 0.0)
+    unsharp = cv2.addWeighted(img, 3, blurred, -2, 0, img)
+    img = unsharp
     M, ideal_grid, grid_next, grid_good, spts = findChessboard(img)
     # View
     if M is not None:
@@ -385,12 +389,12 @@ def getChessContour(img):
         return [np.array(pts, dtype=np.int32)]
 
 def main():
-    img = cv2.imread("../Real6.png", 0)
-    cnts = getChessContour(img)
-    cv2.drawContours(img, cnts, -1, (0,255,0), 3)
-    cv2.imshow("A", img)
-    cv2.waitKey(0)
-#   processSingle(img)
+    img = cv2.imread("../img/Real6.png", 0)
+    # cnts = getChessContour(img)
+    # cv2.drawContours(img, cnts, -1, (0,255,0), 3)
+    # cv2.imshow("A", img)
+    # cv2.waitKey(0)
+    processSingle(img)
 
 if __name__ == '__main__':
     main()

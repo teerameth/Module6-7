@@ -134,6 +134,7 @@ while True:
     if key == ord('m'):
         mode = not mode
     if key == ord(' '):
+        cv2.imwrite(str(i) + "_mask.jpg", fgMask)
         cv2.imwrite(str(i) + ".jpg", warped)
         i+=1
     if key == ord('g'):
