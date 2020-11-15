@@ -1,3 +1,5 @@
+import cv2
+import numpy as np
 # Add relative directory ../Library to import path, so we can import the SpoutSDK.pyd library. Feel free to remove these if you put the SpoutSDK.pyd file in the same directory as the python scripts.
 # import sys
 # sys.path.append('C:/Users/teera/Documents/GitHub/Module6-7/Sprout/')
@@ -7,48 +9,20 @@ import pygame
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
+width, height = 1280, 720
+spoutSenderWidth, spoutSenderHeight = 1280, 720
 
-verticies = (
-    (1, -1, -1),
-    (1, 1, -1),
-    (-1, 1, -1),
-    (-1, -1, -1),
-    (1, -1, 1),
-    (1, 1, 1),
-    (-1, -1, 1),
-    (-1, 1, 1)
-)
-
-edges = (
-    (0, 1),
-    (0, 3),
-    (0, 4),
-    (2, 1),
-    (2, 3),
-    (2, 7),
-    (6, 3),
-    (6, 4),
-    (6, 7),
-    (5, 1),
-    (5, 4),
-    (5, 7)
-)
-
-
-def Cube():
-    glBegin(GL_LINES)
-    for edge in edges:
-        for vertex in edge:
-            glVertex3fv(verticies[vertex])
-    glEnd()
-
+cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+codec = 0x47504A4D  # MJPG
+cap.set(cv2.CAP_PROP_FPS, 30.0)
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+cap.set(3, width)
+cap.set(4, height)
 
 def main():
     # window details
-    width = 800
-    height = 600
     display = (width, height)
-
     # window setup
     pygame.init()
     pygame.display.set_caption('Spout Python Sender')
@@ -75,8 +49,6 @@ def main():
 
     # init spout sender
     spoutSender = SpoutSDK.SpoutSender()
-    spoutSenderWidth = width
-    spoutSenderHeight = height
     # Its signature in c++ looks like this: bool CreateSender(const char *Sendername, unsigned int width, unsigned int height, DWORD dwFormat = 0);
     spoutSender.CreateSender('Spout Python Sender', spoutSenderWidth, spoutSenderHeight, 0)
 
@@ -94,26 +66,10 @@ def main():
     glBindTexture(GL_TEXTURE_2D, 0)
 
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-
-        # setup frame
-        glActiveTexture(GL_TEXTURE0)
-        glClearColor(0.0, 0.0, 0.0, 0.0)
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-        # Perform a rotation and since we aren't resetting our perspective with glLoadIdentity, then each frame will perform a successive rotation on top of what we already see
-        glRotatef(1, 3, 1, 1)
-
-        # draw cube
-        Cube()
-
-        # bind our senderTexture and copy the window's contents into the texture
+        frame = cap.read()[1]
+        # Copy the frame from the opencv into the sender texture
         glBindTexture(GL_TEXTURE_2D, senderTextureID)
-        glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, spoutSenderWidth, spoutSenderHeight, 0);
-        glBindTexture(GL_TEXTURE_2D, 0)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, spoutSenderWidth, spoutSenderHeight, 0, GL_BGR, GL_UNSIGNED_BYTE, cv2.flip(frame, 0))
 
         # send texture to Spout
         # Its signature in C++ looks like this: bool SendTexture(GLuint TextureID, GLuint TextureTarget, unsigned int width, unsigned int height, bool bInvert=true, GLuint HostFBO = 0);
@@ -123,6 +79,9 @@ def main():
         pygame.display.flip()
 
         pygame.time.wait(10)
-
-
-main()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+if __name__ == '__main__':
+    main()
