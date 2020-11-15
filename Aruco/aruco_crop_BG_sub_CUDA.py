@@ -25,7 +25,7 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 # cap.set(3, 1920)
 # cap.set(4, 1080)
 
-cap = cv2.VideoCapture("J.mp4")
+cap = cv2.VideoCapture("../J.mp4")
 cuda_stream = cv2.cuda_Stream()
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)

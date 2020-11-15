@@ -6,3 +6,5 @@ pyserial
 matplotlib
 scipy
 scikit-image
+PyOpenGL
+Pillow
