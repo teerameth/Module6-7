@@ -217,6 +217,7 @@ void circularMotion(int nf){
         x0 = 0;
         y0 = 0;
         theta = 1.53;
+        gramma = 0;
         path_mode = 0;
         tf = 3;  
     }  
@@ -228,6 +229,7 @@ void circularMotion(int nf){
         c4 = 0.0102;
         r = 130;
         phi = PI;
+        gramma = 0;
         ti = 3;
         x0 = 140;
         y0 = 250;
@@ -246,6 +248,7 @@ void circularMotion(int nf){
         x0 = 140;
         y0 = 250;
         path_mode = 1;
+        gramma = 0;
         tf = (tf1*n)+8; 
     }
     
@@ -258,6 +261,7 @@ void circularMotion(int nf){
         c4 = 0.0102;
         r = 130;
         phi = 0;
+        gramma = 0;
         x0 = 140;
         y0 = 250;
         path_mode = 1;
@@ -279,6 +283,7 @@ void recMotion(int nf){
         x0 = 0;
         y0 = 0;
         theta = 1.487;
+        gramma = 0;
         path_mode = 0;
         tf = 4;  
     }
@@ -292,6 +297,7 @@ void recMotion(int nf){
         x0 = 10;
         y0 = 120;
         theta = 0;
+        gramma = 0;
         path_mode = 0;
         tf = 8;  
     }
@@ -305,6 +311,7 @@ void recMotion(int nf){
         x0 = 270;
         y0 = 120;
         theta = PI/2;
+        gramma = 0;
         path_mode = 0;
         tf = 12;  
     }
@@ -318,6 +325,7 @@ void recMotion(int nf){
         x0 = 270;
         y0 = 380;
         theta = PI;
+        gramma = 0;
         path_mode = 0;
         tf = 16;  
     }
@@ -331,6 +339,7 @@ void recMotion(int nf){
         x0 = 10;
         y0 = 380;
         theta = -PI/2;
+        gramma = 0;
         path_mode = 0;
         tf = 20;  
     }
@@ -346,6 +355,7 @@ void recMotion(int nf){
         x0 = 10;
         y0 = 120;
         theta = 0;
+        gramma = 0;
         path_mode = 0;
         tf = 8; 
     }

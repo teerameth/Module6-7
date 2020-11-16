@@ -25,8 +25,8 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 # cap.set(3, 1920)
 # cap.set(4, 1080)
 
-cap = cv2.VideoCapture("../G.mp4")
-
+cap = cv2.VideoCapture("../J.mp4")
+cuda_stream = cv2.cuda_Stream()
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)
 # markerLength=0.039 # real
@@ -35,7 +35,7 @@ markerLength = 0.04
 markerSeparation = 0.01
 # board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=0.039, markerSeparation=0.0975, dictionary=dictionary) # real
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
-backSub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=16, detectShadows=False)
+backSub = cv2.cuda.createBackgroundSubtractorMOG2(history=100, varThreshold=16, detectShadows=False)
 # backSub = cv2.createBackgroundSubtractorKNN(history=30, dist2Threshold=400.0, detectShadows=True)
 img_list, mask_list = [], []
 
@@ -49,22 +49,11 @@ def drawBox(frame, rvec, tvec, size = 0.4):
     cv2.line(frame, tuple(imgpts[2].ravel()), tuple(imgpts[3].ravel()), (0,0,255), 2)
     cv2.line(frame, tuple(imgpts[3].ravel()), tuple(imgpts[0].ravel()), (0,0,255), 2)
 
-    # cv2.line(frame, tuple(imgpts[0].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2)
-    # cv2.line(frame, tuple(imgpts[1].ravel()), tuple(imgpts[1+4].ravel()), (0,0,255), 2)
-    # cv2.line(frame, tuple(imgpts[2].ravel()), tuple(imgpts[2+4].ravel()), (0,0,255), 2)
-    # cv2.line(frame, tuple(imgpts[3].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
-
-    # cv2.line(frame, tuple(imgpts[0+4].ravel()), tuple(imgpts[1+4].ravel()), (0,0,255), 2)
-    # cv2.line(frame, tuple(imgpts[1+4].ravel()), tuple(imgpts[2+4].ravel()), (0,0,255), 2)
-    # cv2.line(frame, tuple(imgpts[2+4].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
-    # cv2.line(frame, tuple(imgpts[3+4].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2) 
-# _, frame = cap.read()
-# h,  w = frame.shape[:2]
-# cameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, dist, (w,h), 1, (w,h))
 i=0
 frame_counter = 0
 mode = True
-while True:
+N = 1000
+for J in range(N):
     _, frame = cap.read()
     original = frame.copy()
     markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
@@ -114,16 +103,17 @@ while True:
             valid_mask = cv2.bitwise_or(warped, warped, mask=valid_mask)
             final = cv2.bitwise_or(mean_canvas, valid_mask)
             cv2.imshow('Passed', final)
+            final_gpu = cv2.cuda_GpuMat()
+            final_gpu.upload(final)
 
-            fgMask = backSub.apply(cv2.GaussianBlur(final,(5,5),0))
-            fgMask = cv2.morphologyEx(fgMask, cv2.MORPH_CLOSE, kernel=np.ones((5,5),np.uint8))
-            # fgMask += 255-valid_mask
-            cv2.imshow('FG Mask', fgMask)
-
-            # img_list.append(warped)
-            # mask_list.append(fgMask)
-
-            bg = backSub.getBackgroundImage()
+            final = cv2.cuda_GpuMat(final)
+            fgMask = backSub.apply(final, -1, cuda_stream)
+            fgMask = fgMask.download()
+            # fgMask = cv2.morphologyEx(fgMask, cv2.MORPH_CLOSE, kernel=np.ones((5,5),np.uint8))
+            # cv2.imshow('FG Mask', fgMask)
+            bg = cv2.cuda_GpuMat(final_gpu.size(),final_gpu.type())
+            backSub.getBackgroundImage(cuda_stream, bg)
+            bg = bg.download()
             cv2.imshow('BG', bg)
         
     cv2.imshow("Preview", frame)
@@ -134,7 +124,6 @@ while True:
     if key == ord('m'):
         mode = not mode
     if key == ord(' '):
-        cv2.imwrite(str(i) + "_mask.jpg", fgMask)
         cv2.imwrite(str(i) + ".jpg", warped)
         i+=1
     if key == ord('g'):
