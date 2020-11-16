@@ -19,6 +19,7 @@ const int dirPinB = 32;
 const int stepPinB = 33;
 const int proximityPin = 27; // Active LOW
 const int gripperServoPin = 14;
+const int limitSwitchPin = 12; // Homing switch
 float pulseDelay; // 1000 for 28byj-48, 500 for NEMA-17
 int gripper_pos = 0;
 int stepAPos = 0, stepBPos = 0;
