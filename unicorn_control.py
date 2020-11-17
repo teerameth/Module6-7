@@ -35,27 +35,37 @@ class Robot:
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         self.apply_checksum(packet)
         self.serialDevice.write(packet)
+        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # [0xFF, 0xFF, 5, 0x01, checksum]
+        print(responsePacket)
     def readPosition(self):
         packet = [0xFF, 0xFF, 3, 0x02]
         self.apply_checksum(packet)
         self.serialDevice.write(packet)
         time.sleep(0.02)
-        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x02, X, Y, checksum]
+        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x02, X_high, X_low, Y_high, Y_low, checksum]
         print(responsePacket)
-        return responsePacket[4], responsePacket[5] # X, Y
+        return responsePacket[4]*256+responsePacket[5], responsePacket[6]*255+responsePacket[7] # X, Y
     def writePosition(self, x, y):
         packet = [0xFF, 0xFF, 6, 0x03, int(x/256), x%256, int(y/256), y%256]
         self.apply_checksum(packet)
         self.serialDevice.write(packet)
         print(packet)
-        # time.sleep(0.02)
-        # responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
-        # if len(responsePacket) != 4: return False # Doesn't receive acknowledge
-        # return True
-    def circular_motion(self, n):
+        time.sleep(0.02)
+        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
+        if len(responsePacket) != 4: return False # Doesn't receive acknowledge
+        return True
+    def writeTrajectory(self,x, y): # Ack {255, 255, 3, 4, 1, 0} every move
+        pass
+    def circular_motion(self, n): # Ack {255, 255, 3, 4, 1, 0} every move
         packet = [0xFF, 0xFF, 4, 0x07, 0x00, n]
         self.apply_checksum(packet)
         self.serialDevice.write(packet)
+        count = 0
+        while True:
+            responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting())
+            if len(responsePacket) == 6: count+=1
+            if count == 4*n: break # Wait for complete
+
 
 robot = Robot("COM4", 115200)
 robot.connect()

@@ -1,10 +1,9 @@
 /*
- * File:   uart1.c
- * Author: G_Peav
+ * File:   uart.c
+ * Author: teera
  *
- * Created on September 9, 2019, 4:31 PM
+ * Created on November 0, 2020, 5:99 AM
  */
-
 
 #include "xc.h"
 #include "stdio.h"
@@ -16,70 +15,22 @@
 #define G 9.782970341
 #define CON_T 0.010
 
-float pwm_x;
-float kp_x = 1.0;
-float ki_x = 0.0;
-float kd_x = 7.0;;
-float prev_err_x;
-float setpoint_x;
-float i_term_x;
-float d_term_x;
-float feedback_x;
-float new_error_x;
-
-float pwm_vel_x;
-float kp_vel_x = 0.970;
-float ki_vel_x = 0.021;
-float kd_vel_x = 0.25;
-float prev_err_vel_x;
-float setpoint_vel_x;
-float i_term_vel_x;
-float d_term_vel_x;
-float feedback_vel_x;
-float new_error_vel_x;
-float vel_x=0;
-
-float pwm_y;
-float kp_y = 1.0;
-float ki_y = 0.0;
-float kd_y = 7.0;
-float prev_err_y;
-float setpoint_y;
-float i_term_y;
-float d_term_y;
-float feedback_y;
-float new_error_y;
-
-float pwm_vel_y;
-float kp_vel_y = 1.60;
-float ki_vel_y = 0.045;
-float kd_vel_y = 0.3;
-float prev_err_vel_y;
-float setpoint_vel_y;
-float i_term_vel_y;
-float d_term_vel_y;
-float feedback_vel_y;
-float new_error_vel_y;
-float vel_y=0;
-
+float pwm_x, kp_x = 1.0, ki_x = 0.0, kd_x = 7.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
+float pwm_vel_x, kp_vel_x = 0.970, ki_vel_x = 0.021, kd_vel_x = 0.25, prev_err_vel_x, setpoint_vel_x, i_term_vel_x, d_term_vel_x, feedback_vel_x, new_error_vel_x, vel_x=0;
+float pwm_y, kp_y = 1.0, ki_y = 0.0, kd_y = 7.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
+float pwm_vel_y, kp_vel_y = 1.60, ki_vel_y = 0.045, kd_vel_y = 0.3, prev_err_vel_y, setpoint_vel_y, i_term_vel_y, d_term_vel_y, feedback_vel_y, new_error_vel_y, vel_y=0;
 float sigma_a_x =14; // adjustable
 float sigma_w_x =1.30; // adjustable
 
-float w_update_x =0;
-float w_inKalman_x = 0;
-float w_outKalman_x = 0; 
+float w_update_x =0, w_inKalman_x = 0, w_outKalman_x = 0; 
 // float kumara_base_yaw =0;
-float Q_x,R_x; 
-float x1_in_x = 0;
-float x2_in_x = 0;
+float Q_x,R_x, x1_in_x = 0, x2_in_x = 0;
 float x1_x = 0; // orientation
 float x2_x = 0; // w_outKalman (angular_vel)
 float p11_x = 1.0; // adjustable
-float p12_x = 0;
-float p21_x = 0;
+float p12_x = 0, p21_x = 0;
 float p22_x = 0.9; // adjustable
-float cur_theta_x;
-float prev_theta_x;
+float cur_theta_x, prev_theta_x;
 
 float sigma_a_y =14; // adjustable
 float sigma_w_y =1.30; // adjustable
@@ -88,31 +39,15 @@ float w_update_y =0;
 float w_inKalman_y = 0;
 float w_outKalman_y = 0; 
 // float kumara_base_yaw =0;
-float Q_y,R_y; 
-float x1_in_y = 0;
-float x2_in_y = 0;
+float Q_y,R_y, x1_in_y = 0, x2_in_y = 0;
 float x1_y = 0; // orientation
 float x2_y = 0; // w_outKalman (angular_vel)
-float p11_y = 1.0; // adjustable
-float p12_y = 0;
-float p21_y = 0;
-float p22_y = 0.9; // adjustable
-float cur_theta_y;
-float prev_theta_y;
+float p11_y = 1.0, p12_y = 0, p21_y = 0, p22_y = 0.9; // adjustable
+float cur_theta_y, prev_theta_y;
 
-float t,tf,ti;
-float r,theta;
-float c1,c2,c3,c4;
-float theta;
-float gramma;
-int state = 0;
-float x0,y0;
-float Q_t;
-float Q_dot_t;
-int path_mode;
-float phi;
-float gramma;
-int n  = 1;
+float t,tf,ti,r,theta,c1,c2,c3,c4,gramma;
+int state = 0, n = 1;
+float x0,y0, Q_t,Q_dot_t,path_mode,phi;
 
 int numByte;
 uint8_t dataArray[10], stack[20];
@@ -121,48 +56,140 @@ uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum, circula
 bool circle_running = false, trajectory_running = false, homed = false;
 int cur_pos_x, cur_pos_y;
 uint8_t ack_packet[10] = {255, 255, 0, 0, 0, 0, 0, 0, 0, 0};
-void initPLL() // Set Fcy to 40 MHz
-{
-    PLLFBD = 150;           // M  = 152
-    CLKDIVbits.PLLPRE = 5;  // N1 = 7
-    CLKDIVbits.PLLPOST = 0; // N2 = 2
-    OSCTUN = 0;             // Tune FRC oscillator, if FRC is used
-    
-    // Clock switching to incorporate PLL
-    __builtin_write_OSCCONH(0x01);    // Initiate Clock Switch to FRCPLL
-    // Oscillator with PLL (NOSC=0b011)
-    __builtin_write_OSCCONL(0x01);    // Start clock switching
 
-    while (OSCCONbits.COSC != 0b001); // Wait for Clock switch to occur
-    while (OSCCONbits.LOCK!=1) {};    // Wait for PLL to lock
-}
-void applyCheckSum(uint8_t *buffer, int length){
-    int i;
-    uint8_t checksum = 0;
-    for(i=2;i<length-1;i++){
-        checksum += buffer[i];
-    }
-    buffer[sizeof(buffer)-1] = ~checksum;
-}
-void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to the left N times
-    int i, j;
-    for(i=0;i<n;i++){
-        for(j=0;j<buffer_size-1;j++){
-            buffer[j] = buffer[j+1];
+void initPLL();
+void setup();
+float read_posX();
+float read_posY();
+void readPosition();
+void writePosition(float x, float y);
+void applyCheckSum(uint8_t *buffer, int length);
+void shift_buffer(int n, uint8_t *buffer, int buffer_size);
+void sendUART(int length, uint8_t *buffer, int startIndex);
+void setHome();
+void circularMotion(int nf);
+void recMotion(int nf);
+void delay();
+void motorY(int speed);
+void motorX(int speed);
+
+int main(void) {
+    setup();
+    while(1){
+        numByte = UART1_ReadBuffer(dataArray, 10); // numByte = Number of data taking out of buffer and put into array
+        int i;
+        unsigned char checksum;
+        if (numByte != 0){    
+            for (i=0;i<numByte;i++){
+                stack[stackSize+i] = dataArray[i];
+            }
+            stackSize += numByte;
+        }
+        if (stackSize > 2) // Time to check data
+        {
+            switch(uart_state){
+                case 0:
+                    for(i=0;i<stackSize-1;i++){
+                        if(stack[i]==255 && stack[i+1]==255){
+                            startIndex = i;
+                            if(stackSize - startIndex < 3){break;} // packetLength doesn't arrived yet
+                            uart_state = 1;
+                            break;
+                        }
+                    }
+                    break;
+                case 1:
+                    packetLength = stack[startIndex+2];
+//                    printf("packetLength = %d\n", packetLength);
+//                    printf("stackSize = %d\n", stackSize);
+//                    printf("startIndex = %d\n", startIndex);
+                    if(stackSize - startIndex > packetLength+2){ // Packet complete -> Move to next step
+//                        printf("packetLength = %d\n", packetLength);
+                        uart_state = 2;
+                        break;
+                    }
+                    break; //transmission doesn't finished yet
+                case 2: // Checksum recognize
+                    checksum = 0;
+                    for(i=startIndex+2;i<startIndex+packetLength+2;i++){checksum+=stack[i];}
+                    checksum = ~checksum;
+                    if(stack[startIndex+packetLength+2] == checksum){ // Checksum correct
+//                        printf("Checksum Passed!\n");
+                        uart_state = 3;
+                        break;
+                    }
+                    else{
+                        // Checksum error
+//                        printf("Checksum Error!\n");
+//                        for (i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+                        shift_buffer(startIndex+1, stack, sizeof(stack));
+                        stackSize -= startIndex+1;
+                        break;
+                    }
+                case 3: // Call function
+                    switch(stack[startIndex+3]){ //Instruction (ParameterN is at startIndex+3+N)
+                        case 1: //Ping
+                            sendUART(6, stack, startIndex);
+                            break;
+                        case 2: //Read(x, y)
+                            readPosition();
+//                            ack_packet = {255, 255, 2, 5, cur_pos_x/255, cur_pos_x%255, cur_pos_y/255, cur_pos_y%255, 0};
+                            ack_packet[2] = 2;
+                            ack_packet[3] = 5;
+                            ack_packet[4] = cur_pos_x/256; // X-high byte
+                            ack_packet[5] = cur_pos_x%256; // X-low byte
+                            ack_packet[6] = cur_pos_y/256; // Y-high byte
+                            ack_packet[7] = cur_pos_y%256; // Y-low byte
+                            applyCheckSum(ack_packet, 9);
+                            sendUART(9, ack_packet, 0);
+                            break;
+                        case 3: //Write (x, y)
+                            writePosition(256*stack[startIndex+4] + stack[startIndex+5],256*stack[startIndex+6] + stack[startIndex+7]);
+                            break;
+                        case 4: //Write Trajectory
+//                            ack_packet = {255, 255, 3, 4, 0, 0};
+                            ack_packet[2] = 3;
+                            ack_packet[3] = 4;
+                            ack_packet[4] = 0;
+                            applyCheckSum(ack_packet, 6);
+                            sendUART(6, ack_packet, 0);
+                            break;
+                        case 5: // Home
+                            if(stack[startIndex+4]){ // Asked if home was set
+//                                ack_packet = {255, 255, 3, 5, homed, 0};
+                                ack_packet[2] = 3;
+                                ack_packet[3] = 5;
+                                ack_packet[4] = homed;
+                                applyCheckSum(ack_packet, 6);
+                                sendUART(6, ack_packet, 0);
+                            }
+                            else{
+                                setHome();
+                            }
+                            break;
+                        case 7: // Motion 0=Circular
+                            if(stack[startIndex+4] == 0){
+                                circle_running = true;
+                                circular_nf = stack[startIndex+5];
+                            }
+                            break;
+                        default:
+                            Nop();
+                    }
+//                    printf("stackSize = %d\n", stackSize);
+//                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+                    shift_buffer(startIndex+packetLength+3, stack, sizeof(stack));//Clear used stack
+                    stackSize -= startIndex+packetLength+3;
+//                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
+//                    printf("stackSize = %d\n", stackSize);
+                    uart_state = 0;
+            }
+        }
+        if(circle_running){
+            circularMotion(circular_nf);
         }
     }
-}
-void sendUART(int length, uint8_t *buffer, int startIndex)
-{
-    DMA0CNT = length - 1; // Length
-    int i;
-    for(i=0;i<length;i++){
-        BufferA[i] = buffer[i + startIndex];
-    }
-    // Send !!!
-    DMA0STA = __builtin_dmaoffset(BufferA);
-    DMA0CONbits.CHEN  = 1;
-    DMA0REQbits.FORCE = 1;
+    return 0;
 }
 void readPosition(){
     cur_pos_x = (int)POS1CNT*81.6/(3413.0*2.0);
@@ -173,9 +200,6 @@ void writePosition(float x, float y){
     setpoint_y = y;
     setpoint_vel_x = 0;
     setpoint_vel_y = 0;
-    // Acknowledge
-    // Move
-    // Report
 }
 void writeTrajectory(float Tf, float C1, float C2, float C3, float C4, float X0, float Y0, float Theta,float Gramma){
     tf = Tf;
@@ -189,11 +213,6 @@ void writeTrajectory(float Tf, float C1, float C2, float C3, float C4, float X0,
     gramma = Gramma;
     path_mode = 0;
     ti = 0;
-    // Acknowledge
-    // Move
-    // Report
-
-
     //        ti = 0;
 //        c1 = 0;
 //        c2 = 0;
@@ -387,10 +406,6 @@ void recMotion(int nf){
         n++;
     }
 }
-void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void)
-{
-	IFS0bits.DMA0IF = 0;			// Clear the DMA0 Interrupt Flag;
-}
 void setup(){
      __builtin_disable_interrupts();
      initPLL();
@@ -496,7 +511,6 @@ float read_posY()
     }
     return pos_y;
 }
-
 void motorY(int speed)
 {
     if (speed>100){
@@ -522,7 +536,6 @@ void motorY(int speed)
     pwm /= 100;
     OC1RS = pwm;
 }
-
 void motorX(int speed)
 {
     if (speed>100)
@@ -567,7 +580,53 @@ void delay()
     }
     i = 0;
 }
+void applyCheckSum(uint8_t *buffer, int length){
+    int i;
+    uint8_t checksum = 0;
+    for(i=2;i<length-1;i++){
+        checksum += buffer[i];
+    }
+    buffer[sizeof(buffer)-1] = ~checksum;
+}
+void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to the left N times
+    int i, j;
+    for(i=0;i<n;i++){
+        for(j=0; j<buffer_size-1; j++){
+            buffer[j] = buffer[j+1];
+        }
+    }
+}
+void sendUART(int length, uint8_t *buffer, int startIndex)
+{
+    DMA0CNT = length - 1; // Length
+    int i;
+    for(i=0;i<length;i++){
+        BufferA[i] = buffer[i + startIndex];
+    }
+    // Send !!!
+    DMA0STA = __builtin_dmaoffset(BufferA);
+    DMA0CONbits.CHEN  = 1;
+    DMA0REQbits.FORCE = 1;
+}
+void initPLL() // Set Fcy to 40 MHz
+{
+    PLLFBD = 150;           // M  = 152
+    CLKDIVbits.PLLPRE = 5;  // N1 = 7
+    CLKDIVbits.PLLPOST = 0; // N2 = 2
+    OSCTUN = 0;             // Tune FRC oscillator, if FRC is used
+    
+    // Clock switching to incorporate PLL
+    __builtin_write_OSCCONH(0x01);    // Initiate Clock Switch to FRCPLL
+    // Oscillator with PLL (NOSC=0b011)
+    __builtin_write_OSCCONL(0x01);    // Start clock switching
 
+    while (OSCCONbits.COSC != 0b001); // Wait for Clock switch to occur
+    while (OSCCONbits.LOCK!=1) {};    // Wait for PLL to lock
+}
+void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void)
+{
+	IFS0bits.DMA0IF = 0;			// Clear the DMA0 Interrupt Flag;
+}
 void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
 {  
     if(t < tf)
@@ -709,132 +768,10 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
      _T1IF =0 ;  //clear interrupt flag
     
 }
-
 void __attribute__((interrupt,no_auto_psv)) _T2Interrupt(void)
 {
     //numByte = UART1_ReadBuffer(dataArray, 10);
 //    printf("w = :%f:%f:%f:%f:%f:%f:\n",t,(float)POS1CNT*81.6/(3413.0*2.0),(float)POS2CNT*81.6/(3413.0*2.0)  ,setpoint_y, vel_y ,x2_y);
      _T2IF =0 ;  //clear interrupt flag
 
-}
-int main(void) {
-    setup();
-//    printf("Program Start!\n");
-    
-    while(1){
-        numByte = UART1_ReadBuffer(dataArray, 10); // numByte = Number of data taking out of buffer and put into array
-        int i;
-        unsigned char checksum;
-        if (numByte != 0){    
-            for (i=0;i<numByte;i++){
-                stack[stackSize+i] = dataArray[i];
-            }
-            stackSize += numByte;
-        }
-        if (stackSize > 2) // Time to check data
-        {
-            switch(uart_state){
-                case 0:
-                    for(i=0;i<stackSize-1;i++){
-                        if(stack[i]==255 && stack[i+1]==255){
-                            startIndex = i;
-                            if(stackSize - startIndex < 3){break;} // packetLength doesn't arrived yet
-                            uart_state = 1;
-                            break;
-                        }
-                    }
-                    break;
-                case 1:
-                    packetLength = stack[startIndex+2];
-//                    printf("packetLength = %d\n", packetLength);
-//                    printf("stackSize = %d\n", stackSize);
-//                    printf("startIndex = %d\n", startIndex);
-                    if(stackSize - startIndex > packetLength+2){ // Packet complete -> Move to next step
-//                        printf("packetLength = %d\n", packetLength);
-                        uart_state = 2;
-                        break;
-                    }
-                    break; //transmission doesn't finished yet
-                case 2: // Checksum recognize
-                    checksum = 0;
-                    for(i=startIndex+2;i<startIndex+packetLength+2;i++){checksum+=stack[i];}
-                    checksum = ~checksum;
-                    
-                    if(stack[startIndex+packetLength+2] == checksum){ // Checksum correct
-//                        printf("Checksum Passed!\n");
-                        uart_state = 3;
-                        break;
-                    }
-                    else{
-                        // Checksum error
-//                        printf("Checksum Error!\n");
-//                        for (i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
-                        shift_buffer(startIndex+1, stack, sizeof(stack));
-                        stackSize -= startIndex+1;
-                        break;
-                    }
-                case 3: // Call function
-                    switch(stack[startIndex+3]){ //Instruction (ParameterN is at startIndex+3+N)
-                        case 1: //Ping
-                            sendUART(6, stack, startIndex);
-                            break;
-                        case 2: //Read(x, y)
-                            readPosition();
-//                            uint8_t packet[] = {255, 255, 2, 5, cur_pos_x/255, cur_pos_x%255, cur_pos_y/255, cur_pos_y%255, 0};
-                            ack_packet[2] = 2;
-                            ack_packet[3] = 5;
-                            ack_packet[4] = cur_pos_x/255;
-                            ack_packet[5] = cur_pos_x%255;
-                            ack_packet[6] = cur_pos_y/255;
-                            ack_packet[7] = cur_pos_y%255;
-                            applyCheckSum(ack_packet, 9);
-                            sendUART(9, ack_packet, 0);
-                            break;
-                        case 3: //Write (x, y)
-                            writePosition(256*stack[startIndex+4] + stack[startIndex+5],256*stack[startIndex+6] + stack[startIndex+7]);
-                            break;
-                        case 4: //Write Trajectory
-//                            ack_packet = {255, 255, 3, 4, 0, 0};
-                            ack_packet[2] = 3;
-                            ack_packet[3] = 4;
-                            ack_packet[4] = 0;
-                            applyCheckSum(ack_packet, 6);
-                            sendUART(6, ack_packet, 0);
-                            break;
-                        case 5: // Home
-                            if(stack[startIndex+4]){
-//                                ack_packet = {255, 255, 3, 5, homed, 0};
-                                ack_packet[2] = 3;
-                                ack_packet[3] = 5;
-                                ack_packet[4] = homed;
-                                applyCheckSum(ack_packet, 6);
-                                sendUART(6, ack_packet, 0);
-                            }
-                            else{
-                                setHome();
-                            }
-                            break;
-                        case 7: // Motion 0=Circular
-                            if(stack[startIndex+4] == 0){
-                                circle_running = true;
-                                circular_nf = stack[startIndex+5];
-                            }
-                            break;
-                        default:
-                            Nop();
-                    }
-//                    printf("stackSize = %d\n", stackSize);
-//                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
-                    shift_buffer(startIndex+packetLength+3, stack, sizeof(stack));//Clear used stack
-                    stackSize -= startIndex+packetLength+3;
-//                    for(i=0;i<sizeof(stack);i++){printf("%d ", stack[i]);}printf("\n");
-//                    printf("stackSize = %d\n", stackSize);
-                    uart_state = 0;
-            }
-        }
-        if(circle_running){
-            circularMotion(circular_nf);
-        }
-    }
-    return 0;
 }
