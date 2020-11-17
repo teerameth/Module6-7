@@ -231,7 +231,9 @@ void loop() {
         }
 
         // Check to see if the client request was "GET /H" or "GET /L":
-        if (currentLine.endsWith("GET /R")) {} // Set home of vertical axis
+        if (currentLine.endsWith("GET /R")) { // Set home of vertical axis
+            setZero();
+        }
         if (currentLine.endsWith("GET /H")) {
           digitalWrite(2, HIGH);
         }
@@ -259,7 +261,6 @@ void loop() {
           pos1 = currentLine.indexOf('=');
           pos2 = currentLine.indexOf('&');
           valueString_gripper = currentLine.substring(pos1 + 1, pos2);
-
           //Rotate the servo
           gripper_servo.write(valueString_gripper.toInt());
         }
@@ -267,13 +268,13 @@ void loop() {
           pos1 = currentLine.indexOf('=');
           pos2 = currentLine.indexOf('&');
           valueString_A = currentLine.substring(pos1 + 1, pos2);
-          //stepGo(0, valueString_A.toInt());
+          stepGo(0, valueString_A.toInt());
         }
         if (currentLine.indexOf("GET /?valueB=") >= 0) {
           pos1 = currentLine.indexOf('=');
           pos2 = currentLine.indexOf('&');
           valueString_B = currentLine.substring(pos1 + 1, pos2);
-          //stepGo(1, valueString_B.toInt());
+          stepGo(1, valueString_B.toInt());
         }
       }
     }
@@ -285,7 +286,7 @@ void loop() {
 }
 void setZero() {
   digitalWrite(dirPinA, LOW); // UP
-  while (digitalRead(proximityPin) == 0) {
+  while (digitalRead(limitSwitchPin) == 0) {
     digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(pulseDelay);
   }
   // Reset remembered position
