@@ -22,7 +22,7 @@ class Robot:
         l.append(computedCheckSum)
     def ping(self):
         test_data = random.randint(0, 256)
-        packet = [0xFF, 0xFF, 2, 0x01] # N=2 (Have 0 instruction)
+        packet = [0xFF, 0xFF, 3, 0x01, test_data] # N=2 (Have 1 instruction)
         self.apply_checksum(packet)
         print(packet)
         self.serialDevice.write(packet)
@@ -57,17 +57,17 @@ class Robot:
         self.apply_checksum(packet)
         self.serialDevice.write(packet)
 
-robot = Robot("COM5", 115200)
+robot = Robot("COM4", 115200)
 robot.connect()
 
-# while True:
-#     print("Trying to connect")
-#     if robot.ping():
-#         print("Connected")
-#         break
-#     time.sleep(1)
+while True:
+    print("Trying to connect")
+    if robot.ping():
+        print("Connected")
+        break
+    time.sleep(1)
 robot.set_home()
-robot.circular_motion(30)
+robot.circular_motion(1)
 # robot.writePosition(200, 250)
 # x, y = robot.readPosition()
 # packet = [255, 255, 3, 5, 0]

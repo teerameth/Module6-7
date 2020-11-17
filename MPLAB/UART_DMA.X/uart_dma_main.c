@@ -1,7 +1,22 @@
+/* 
+ * File:   uart_dma_main.c
+ * Author: Luck
+ *
+ * Created on October 28, 2020, 11:34 PM
+ */
+
+
 #include "xc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "configuration.h"
+
+
+/*
+ * 
+ */
+
+
 
 #define FCY = 40008571
 volatile uint64_t millis = 0;
@@ -62,7 +77,7 @@ int main(int argc, char** argv) {
     __builtin_write_OSCCONL(OSCCON & 0xBF); // to clear IOLOCK
     
     
-    // Assign U1TX to RP6, Pin 15
+         // Assign U1TX to RP6, Pin 15
     RPOR2bits.RP5R = 3;
     // Assign U1RX to RP5, Pin 14
     RPINR18bits.U1RXR = 6;
