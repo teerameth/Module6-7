@@ -17,8 +17,9 @@ float pulseDelay; // 1000 for 28byj-48, 500 for NEMA-17
 int gripper_pos = 0;
 int stepAPos = 0, stepBPos = B_zero, stepADes = 0, stepBDes = 0;
 Servo gripper_servo;
-volatile double t_stepA, t_stepB;
+volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
 int stepPin, dirPin, delta;
+int deltaA, deltaB;
 uint8_t stack[40], ack_packet[20];
 uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum;
 char byte_in;
@@ -29,29 +30,43 @@ void shift_buffer(int n, uint8_t *buffer, int buffer_size);
 void applyCheckSum(uint8_t *buffer, int length);
 
 void IRAM_ATTR onStepper(){
-  if(stepAPos != stepADes){
-    if(stepADes>stepAPos){
-      digitalWrite(dirPinA, LOW);
-      stepAPos++;
+  if(tA_left > 0)tA_left--; // Time counter in ms.
+  if(tB_left > 0)tB_left--;
+  deltaA = stepADes - stepAPos;
+  if(deltaA){
+    t_stepA = tA_left/abs(deltaA);
+    t_stepACnt++;
+    if(t_stepACnt > t_stepA){
+      t_stepACnt -= t_stepA;
+      if(deltaA > 0){
+        digitalWrite(dirPinA, LOW);
+        stepAPos++;
+      }
+      else{
+        digitalWrite(dirPinA, HIGH);
+        stepAPos--;
+      }
+      digitalWrite(stepPinA, HIGH);
+      digitalWrite(stepPinA, LOW);
     }
-    else{
-      digitalWrite(dirPinA, HIGH);
-      stepAPos--;
-    }
-    digitalWrite(stepPinA, HIGH);
-    digitalWrite(stepPinA, LOW);
   }
-  if(stepBPos != stepBDes){
-    if(stepBDes>stepBPos){
-      digitalWrite(dirPinB, LOW);
-      stepBPos++;
+  deltaB = stepBDes - stepBPos;
+  if(deltaB){
+    t_stepB = tB_left/abs(deltaB);
+    t_stepBCnt++;
+    if(t_stepBCnt > t_stepB){
+      t_stepBCnt -= t_stepB;
+      if(deltaB > 0){
+        digitalWrite(dirPinB, LOW);
+        stepBPos++;
+      }
+      else{
+        digitalWrite(dirPinB, HIGH);
+        stepBPos--;
+      }
+      digitalWrite(stepPinB, HIGH);
+      digitalWrite(stepPinB, LOW);
     }
-    else{
-      digitalWrite(dirPinB, HIGH);
-      stepBPos--;
-    }
-    digitalWrite(stepPinB, HIGH);
-    digitalWrite(stepPinB, LOW);
   }
 }
 
@@ -73,21 +88,9 @@ void setup() {
   timerAlarmEnable(timer);
   Serial.println("Start Timer");
 }
-void step_drive(int dirPin, int stepPin, int cycle) {
-  if (cycle > 0) {
-    digitalWrite(dirPin, LOW);
-  }
-  else {
-    digitalWrite(dirPin, HIGH);
-  }
-  for (int i = 0; i < abs(cycle); i++)
-  {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(pulseDelay);
-  }
-}
 void loop() {
+  
+
   if(SerialBT.available()){
     byte_in = SerialBT.read();
     stack[stackSize] = byte_in;
@@ -120,7 +123,7 @@ void loop() {
                     for(int i=startIndex+2;i<startIndex+packetLength+2;i++){checksum+=stack[i];}
                     checksum = ~checksum;
                     if(stack[startIndex+packetLength+2] == checksum){ // Checksum correct
-                        Serial.println("Checksum Passed!\n");
+//                        Serial.println("Checksum Passed!\n");
                         uart_state = 3;
                         break;
                     }
@@ -133,11 +136,13 @@ void loop() {
                     }
                 case 3: // Call function
                     switch(stack[startIndex+3]){ //Instruction (ParameterN is at startIndex+3+N)
-                        case 1: //Ping {255, 255, 2, 1, 252}
-                            ack_packet[2] = 2;
-                            ack_packet[3] = 1;
-                            ack_packet[4] = 252;
-                            SerialBT.write(ack_packet, 5);
+                        case 1: //Ping {255, 255, 3, 1, rand, checksum}
+                            ack_packet[2] = stack[startIndex+2];
+                            ack_packet[3] = stack[startIndex+3];
+                            ack_packet[4] = stack[startIndex+4];
+                            ack_packet[5] = stack[startIndex+5];
+                            SerialBT.write(ack_packet, 6);
+                            
                             Serial.println("Ping");
                             break;
                         case 2: //Read(Z) {255, 255, 4, 5, cur_pos_z/255, cur_pos_z%255, 0}
@@ -149,13 +154,21 @@ void loop() {
                             SerialBT.write(ack_packet, 7);
                             Serial.printf("Z_pos = %d", stepAPos);
                             break;
-                        case 3: //Write (z) (a) {255, 255, n+2, 3, 0/1, high_byte, low_byte, checkSum}
+                        case 3: //Write (z) (a) {255, 255, 5, 3, 0/1, high_byte, low_byte, checkSum} or {255, 255, 7, 3, 0/1, high_byte, low_byte, t_1, t_2, checkSum}
                             switch(stack[startIndex+4]){
                               case 0: // Z-axis
                                 stepADes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
                                 break;
                               case 1: // Alpha
                                 stepBDes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
+                                break;
+                              case 2: // Z-axis with time
+                                stepADes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
+                                tA_left = stack[startIndex+7]*256 + stack[startIndex+8]; // time in ms.
+                                break;
+                              case 3: // Alpha with time
+                                stepBDes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
+                                tB_left = stack[startIndex+7]*256 + stack[startIndex+8]; // time in ms.
                                 break;
                               default:
                                 break;
@@ -168,9 +181,12 @@ void loop() {
 //                            ((stack[startIndex+12]==0)?1.0:-1.0)*(((float)stack[startIndex+13])+((float)stack[startIndex+14])/100+((float)stack[startIndex+15])/10000),
 //                            (((float)stack[startIndex+16])+((float)stack[startIndex+17])/100+((float)stack[startIndex+18])/10000));
                             break;
-                        case 5: // Home
+                        case 5: // Home {255, 255, 3, 5, 0, checksum}
                             setZero();
                             break;
+                        case 6: // Gripper servo {255, 255, 3, 6, servoPos, checksum}
+                            gripper_servo.write(stack[startIndex+4]);
+                            Serial.printf("Servo: %d", stack[startIndex+4]);
                         default:
                             break;
                     }

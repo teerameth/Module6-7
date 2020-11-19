@@ -21,6 +21,4 @@ for p in ports:
 print(com_port)
 ser = serial.Serial(com_port)  # open serial port
 ser.write([255, 255, 2, 1, 252])
-while True:
-    print(ser.read())
 ser.close()             # close port
