@@ -111,6 +111,10 @@ class Robot():
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
         if len(responsePacket) != 4: return False # Doesn't receive acknowledge
         return True
+    def gripper(self, angle): # {255, 255, 3, 6, servoPos, checksum}
+        packet = [0xFF, 0xFF, 3, 6, angle]
+        apply_checksum(packet)
+        self.esp.write(packet)
     def circular_motion(self, n): # Ack {255, 255, 3, 4, 1, 0} every move
         packet = [0xFF, 0xFF, 4, 0x07, 0x00, n]
         apply_checksum(packet)
