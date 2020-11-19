@@ -37,7 +37,7 @@ class Robot():
         packet = [0xFF, 0xFF, 3, 0x01, test_data] # N=2 (Have 1 instruction)
         apply_checksum(packet)
         ser.write(packet)
-        time.sleep(0.02)
+        time.sleep(0.1)
         responsePacket = ser.read(ser.inWaiting())
         print(responsePacket)
         if packet == [int(x) for x in responsePacket]: return True
@@ -46,14 +46,14 @@ class Robot():
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
         self.serialDevice.write(packet)
-        time.sleep(0.02)
+        time.sleep(0.1)
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 5, 0x01, checksum]
         print(responsePacket)
     def set_homeZ(self):
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
         self.esp.write(packet)
-        time.sleep(0.02)
+        time.sleep(0.1)
         responsePacket = self.esp.read(self.esp.inWaiting()) # [0xFF, 0xFF, 5, 0x01, checksum]
         print(responsePacket)
     def readPosition(self):
@@ -61,7 +61,7 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         print(packet)
-        time.sleep(0.02)
+        time.sleep(0.1)
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x02, X_high, X_low, Y_high, Y_low, checksum]
         print(responsePacket)
         return responsePacket[4]*256+responsePacket[5], responsePacket[6]*255+responsePacket[7] # X, Y
@@ -70,7 +70,7 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         print(packet)
-        time.sleep(0.02)
+        time.sleep(0.1)
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
         if len(responsePacket) != 4: return False # Doesn't receive acknowledge
         return True
@@ -107,7 +107,7 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
 
-        time.sleep(0.02)
+        time.sleep(0.1)
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
         if len(responsePacket) != 4: return False # Doesn't receive acknowledge
         return True
@@ -145,5 +145,7 @@ def main():
     robot = Robot("COM4", 115200, "COM6", 115200)
     robot.connectZ()
     robot.ping(robot.esp)
+    robot.gripper(120)
+    robot.set_homeZ()
 if __name__ == '__main__':
     main()

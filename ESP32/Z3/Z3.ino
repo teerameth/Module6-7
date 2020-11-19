@@ -182,11 +182,12 @@ void loop() {
 //                            (((float)stack[startIndex+16])+((float)stack[startIndex+17])/100+((float)stack[startIndex+18])/10000));
                             break;
                         case 5: // Home {255, 255, 3, 5, 0, checksum}
+                            Serial.printf("Set Home!");
                             setZero();
                             break;
                         case 6: // Gripper servo {255, 255, 3, 6, servoPos, checksum}
                             gripper_servo.write(stack[startIndex+4]);
-                            Serial.printf("Servo: %d", stack[startIndex+4]);
+                            Serial.printf("Servo: %d\n", stack[startIndex+4]);
                         default:
                             break;
                     }
@@ -212,6 +213,7 @@ void setZero() {
   // Reset remembered position
   stepAPos = 0;
   stepBPos = B_zero;
+  Serial.printf("Homed!");
 }
 //void stepMaiGo(float C3,float C4, float Tf,float Gramma) {
 //  c1 = 0;
