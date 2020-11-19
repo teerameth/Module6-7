@@ -9,3 +9,4 @@ scikit-image
 Pillow
 PyOpenGL-3.1.5-cp38-cp38-win_amd64.whl
 PyOpenGL_accelerate-3.1.5-cp38-cp38-win_amd64.whl
+pybluez

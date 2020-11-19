@@ -16,5 +16,9 @@ while True:
         sendRequest(root_url+"/CW")
     if answer == "ccw":
         sendRequest(root_url+"/CCW")
+    elif 'A' in answer:
+        sendRequest(root_url+"/?valueA=" + answer[1:] + "&")
+    elif 'B' in answer:
+        sendRequest(root_url+"/?valueB=" + answer[1:] + "&")
     else:
         sendRequest(root_url+"/?value=" + answer + "&")

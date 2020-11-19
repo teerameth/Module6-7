@@ -140,9 +140,9 @@ int main(void) {
                             break;
                         case 2: //Read(x, y)
                             readPosition();
-//                            ack_packet = {255, 255, 2, 5, cur_pos_x/255, cur_pos_x%255, cur_pos_y/255, cur_pos_y%255, 0};
-                            ack_packet[2] = 2;
-                            ack_packet[3] = 5;
+//                            ack_packet = {255, 255, 6, 2, cur_pos_x/255, cur_pos_x%255, cur_pos_y/255, cur_pos_y%255, 0};
+                            ack_packet[2] = 6;
+                            ack_packet[3] = 2;
                             ack_packet[4] = cur_pos_x/256; // X-high byte
                             ack_packet[5] = cur_pos_x%256; // X-low byte
                             ack_packet[6] = cur_pos_y/256; // Y-high byte

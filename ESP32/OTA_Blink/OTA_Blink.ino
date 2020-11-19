@@ -3,8 +3,8 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
-const char* ssid = "fiborobotlab";
-const char* password = "fiborobot_lab";
+const char* ssid = "ponyslayer";
+const char* password = "unicorn123";
 
 void setup() {
   Serial.begin(115200);

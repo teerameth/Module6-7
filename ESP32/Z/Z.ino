@@ -3,12 +3,8 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ESP32Servo.h>
-//#include <TimerOne.h>
-//volatile int interrupts;
-//int totalInterrupts;
 
-hw_timer_t*timer = NULL;
-//portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCK;
+hw_timer_t * timer = NULL;
 
 const char* ssid = "ponyslayer";
 const char* password = "unicorn123";
@@ -28,49 +24,38 @@ String valueString_gripper = String(5);
 String valueString_A = String(5);
 String valueString_B = String(5);
 int pos1 = 0; int pos2 = 0; //Just buffer for extract values from GET
-float t;
-float tf;
-float c1, c2, c3, c4;
-float ti;
-float Q_t, Q_dot_t;
-float theta;
-float gramma;
-float setpoint_z;
-float vel_z;
-float z0;
+volatile double t, tf, c1, c2, c3, c4, ti, Q_t, Q_dot_t, theta, gramma, setpoint_z, vel_z, z0;
 int stepPin, dirPin, delta;
 WiFiServer server(80);
 
 void setZero();
 void stepGo(int motor, int pos);
 void stepMaiGo(float C3,float C4, float Tf,float Gramma);
-void IRAM_ATTR onTimer()
-{
-  if (t < tf)
-  {
-    Q_t = c1 + c2 * (t - ti) + c3 * (t - ti) * (t - ti) + c4 * (t - ti) * (t - ti) * (t - ti);
-    Q_dot_t = c2 + 2 * c3 * (t - ti) + 3 * c4 * (t - ti) * (t - ti);
-    setpoint_z = z0 + (Q_t) * sin(gramma);
-    vel_z = (Q_dot_t) * sin(gramma);
-    if (vel_z > 0)
-    {
-      digitalWrite(dirPinA, LOW);
-    }
-    else
-    {
-      digitalWrite(dirPinA, HIGH);
-    }
-    pulseDelay = (224 * 1000000) / (8000 * vel_z);
-    digitalWrite(stepPinA, HIGH);
-    digitalWrite(stepPinA, LOW);
-    delayMicroseconds(pulseDelay);
-  }
-  else
-  {
-    digitalWrite(stepPinA, LOW);
-    digitalWrite(stepPinA, LOW);
-  }
-  t = t + 0.01;
+void IRAM_ATTR onTimer(){
+  if (t < tf){
+        Q_t = c1 + c2 * (t - ti) + c3 * (t - ti) * (t - ti) + c4 * (t - ti) * (t - ti) * (t - ti);
+        Q_dot_t = c2 + 2 * c3 * (t - ti) + 3 * c4 * (t - ti) * (t - ti);
+        setpoint_z = z0 + (Q_t) * sin(gramma);
+        vel_z = (Q_dot_t) * sin(gramma);
+        if (vel_z > 0)
+        {
+          digitalWrite(dirPinA, LOW);
+        }
+        else
+        {
+          digitalWrite(dirPinA, HIGH);
+        }
+        pulseDelay = (224 * 1000000) / (8000 * vel_z);
+        digitalWrite(stepPinA, HIGH);
+        digitalWrite(stepPinA, LOW);
+//        delayMicroseconds(pulseDelay);
+      }
+      else
+      {
+        digitalWrite(stepPinA, LOW);
+        digitalWrite(stepPinA, LOW);
+      }
+      t += 0.01;
 }
 
 void setup() {
@@ -123,13 +108,13 @@ void setup() {
   pinMode(dirPinB, OUTPUT);
   pinMode(stepPinB, OUTPUT);
   pinMode(proximityPin, OUTPUT);
-//    timer = timerBegin(2,80,true);
-//  timerAttachInterrupt(timer, onTimer,true);
-//  timerAlarmWrite(timer,1000,true);
-//  timerAlarmEnable(timer);
   gripper_servo.attach(gripperServoPin);
   server.begin();
-  
+  timer = timerBegin(2, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, 1000000, true);
+  timerAlarmEnable(timer);
+  Serial.println("Start Timer");
 }
 
 void step_drive(int dirPin, int stepPin, int cycle) {
@@ -169,58 +154,57 @@ void loop() {
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            // Display the HTML web page
-            client.println("<!DOCTYPE html><html>");
-            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            client.println("<link rel=\"icon\" href=\"data:,\">");
-            // CSS to style the on/off buttons
-            // Feel free to change the background-color and font-size attributes to fit your preferences
-            client.println("<style>body { text-align: center; font-family: \"Trebuchet MS\", Arial; margin-left:auto; margin-right:auto;}");
-            client.println(".slider { width: 300px; }</style>");
-            client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
-
-            // the content of the HTTP response follows the header:
-            client.print("<a href=\"/R\">SET ZERO</a><br>");
-            client.print("<a href=\"/H\">ON</a><br>");
-            client.print("<a href=\"/L\">OFF</a><br>");
-            client.print("<a href=\"/U\">UP</a><br>");
-            client.print("<a href=\"/D\">DOWN</a><br>");
-            client.print("<a href=\"/CW\">CLOCKWISE</a><br>");
-            client.print("<a href=\"/CCW\">COUNTERCLOCKWISE</a><br>");
-            /// Servo Slider ///
-            client.println("</head><body><h1>Servo</h1>");
-            client.println("<p>Position: <span id=\"servoPos\"></span></p>");
-            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\"" + valueString_gripper + "\"/>");
-            // Script
-            client.println("<script>var slider = document.getElementById(\"servoSlider\");");
-            client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
-            client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
-            client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
-            client.println("$.get(\"/?value=\" + pos + \"&\"); {Connection: close};}</script>");
-            /////////////// Stepper Slider ///////////////
-            /// Z-Linear ///
-            client.println("</head><body><h1>Z-Linear(Motor A)</h1>");
-            client.println("<p>Position: <span id=\"stepA_pos\"></span></p>");
-            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"stepA_slider\" onchange=\"servo(this.value)\" value=\"" + valueString_A + "\"/>");
-            // Script
-            client.println("<script>var sliderA = document.getElementById(\"stepA_slider\");");
-            client.println("var stepA_P = document.getElementById(\"stepA_pos\"); stepA_P.innerHTML = sliderA.value;");
-            client.println("sliderA.oninput = function() { sliderA.value = this.value; stepA_P.innerHTML = this.value; }");
-            client.println("$.ajaxSetup({timeout:1000}); function servoA(pos) { ");
-            client.println("$.get(\"/?valueA=\" + pos + \"&\"); {Connection: close};}</script>");
-            /// Z-Rotation ///
-            client.println("</head><body><h1>Z-Rotation (Motor B)</h1>");
-            client.println("<p>Position: <span id=\"stepB_pos\"></span></p>");
-            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"stepB_slider\" onchange=\"servo(this.value)\" value=\"" + valueString_B + "\"/>");
-            // Script
-            client.println("<script>var sliderB = document.getElementById(\"stepB_slider\");");
-            client.println("var stepB_P = document.getElementById(\"stepB_pos\"); stepB_P.innerHTML = slider.value;");
-            client.println("sliderB.oninput = function() { sliderB.value = this.value; stepB_P.innerHTML = this.value; }");
-            client.println("$.ajaxSetup({timeout:1000}); function servoB(pos) { ");
-            client.println("$.get(\"/?valueB=\" + pos + \"&\"); {Connection: close};}</script>");
-
-            client.println("</body></html>");
-            client.println(); // The HTTP response ends with another blank line:
+//            // Display the HTML web page
+//            client.println("<!DOCTYPE html><html>");
+//            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+//            client.println("<link rel=\"icon\" href=\"data:,\">");
+//            // CSS to style the on/off buttons
+//            // Feel free to change the background-color and font-size attributes to fit your preferences
+//            client.println("<style>body { text-align: center; font-family: \"Trebuchet MS\", Arial; margin-left:auto; margin-right:auto;}");
+//            client.println(".slider { width: 300px; }</style>");
+//            client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
+//
+//            // the content of the HTTP response follows the header:
+//            client.print("<a href=\"/R\">SET ZERO</a><br>");
+//            client.print("<a href=\"/H\">ON</a><br>");
+//            client.print("<a href=\"/L\">OFF</a><br>");
+//            client.print("<a href=\"/U\">UP</a><br>");
+//            client.print("<a href=\"/D\">DOWN</a><br>");
+//            client.print("<a href=\"/CW\">CLOCKWISE</a><br>");
+//            client.print("<a href=\"/CCW\">COUNTERCLOCKWISE</a><br>");
+//            /// Servo Slider ///
+//            client.println("</head><body><h1>Servo</h1>");
+//            client.println("<p>Position: <span id=\"servoPos\"></span></p>");
+//            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\"" + valueString_gripper + "\"/>");
+//            // Script
+//            client.println("<script>var slider = document.getElementById(\"servoSlider\");");
+//            client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
+//            client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
+//            client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
+//            client.println("$.get(\"/?value=\" + pos + \"&\"); {Connection: close};}</script>");
+//            /////////////// Stepper Slider ///////////////
+//            /// Z-Linear ///
+//            client.println("</head><body><h1>Z-Linear(Motor A)</h1>");
+//            client.println("<p>Position: <span id=\"stepA_pos\"></span></p>");
+//            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"stepA_slider\" onchange=\"servo(this.value)\" value=\"" + valueString_A + "\"/>");
+//            // Script
+//            client.println("<script>var sliderA = document.getElementById(\"stepA_slider\");");
+//            client.println("var stepA_P = document.getElementById(\"stepA_pos\"); stepA_P.innerHTML = sliderA.value;");
+//            client.println("sliderA.oninput = function() { sliderA.value = this.value; stepA_P.innerHTML = this.value; }");
+//            client.println("$.ajaxSetup({timeout:1000}); function servoA(pos) { ");
+//            client.println("$.get(\"/?valueA=\" + pos + \"&\"); {Connection: close};}</script>");
+//            /// Z-Rotation ///
+//            client.println("</head><body><h1>Z-Rotation (Motor B)</h1>");
+//            client.println("<p>Position: <span id=\"stepB_pos\"></span></p>");
+//            client.println("<input type=\"range\" min=\"0\" max=\"180\" class=\"slider\" id=\"stepB_slider\" onchange=\"servo(this.value)\" value=\"" + valueString_B + "\"/>");
+//            // Script
+//            client.println("<script>var sliderB = document.getElementById(\"stepB_slider\");");
+//            client.println("var stepB_P = document.getElementById(\"stepB_pos\"); stepB_P.innerHTML = slider.value;");
+//            client.println("sliderB.oninput = function() { sliderB.value = this.value; stepB_P.innerHTML = this.value; }");
+//            client.println("$.ajaxSetup({timeout:1000}); function servoB(pos) { ");
+//            client.println("$.get(\"/?valueB=\" + pos + \"&\"); {Connection: close};}</script>");
+//            client.println("</body></html>");
+//            client.println(); // The HTTP response ends with another blank line:
             // break out of the while loop:
             break;
           } else {    // if you got a newline, then clear currentLine:
