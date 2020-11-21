@@ -4,10 +4,6 @@ import time
 import numpy as np
 import math
 import serial.tools.list_ports
-comport_pic = "COM4"
-baudrate_pic = 115200
-comport_bt = "COM6"
-baudrate_bt = 115200
 def apply_checksum(l):
     checkSumOrdList = l[2:]
     checkSumOrdListSum = sum(checkSumOrdList)
@@ -142,10 +138,11 @@ class Robot():
         self.closeXY()
         self.closeZ()
 def main():
-    robot = Robot("COM4", 115200, "COM6", 115200)
+    robot = Robot("COM4", 115200, "COM12", 115200)
     robot.connectZ()
     robot.ping(robot.esp)
     robot.gripper(120)
     robot.set_homeZ()
+    robot.writePositionZ(10, 10)
 if __name__ == '__main__':
     main()

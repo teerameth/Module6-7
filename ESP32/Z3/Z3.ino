@@ -206,9 +206,9 @@ void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to t
     }
 }
 void setZero() {
-  digitalWrite(dirPinA, LOW); // UP
+  digitalWrite(dirPinA, HIGH); // DOWN
   while (digitalRead(limitSwitchPin) == 0) {
-    digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(pulseDelay);
+    digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(2000);
   }
   // Reset remembered position
   stepAPos = 0;
