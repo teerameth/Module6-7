@@ -43,8 +43,10 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         time.sleep(0.1)
-        responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 5, 0x01, checksum]
-        print(responsePacket)
+        while True:
+            responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 5, 0x01, checksum]
+            if len(responsePacket) > 3: break
+            time.sleep(0.5)
     def set_homeZ(self):
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
@@ -127,7 +129,7 @@ class Robot():
         print(packet)
         self.esp.write(packet)
         time.sleep(0.1)
-    def gripper(self, angle): # {255, 255, 3, 6, servoPos, checksum}
+    def gripper(self, angle): # {255, 255, 3, 6, servoPos, checksum} 20=close, 170=open
         packet = [0xFF, 0xFF, 3, 6, angle]
         apply_checksum(packet)
         self.esp.write(packet)
@@ -162,11 +164,13 @@ def main():
     robot.connect()
     robot.ping(robot.serialDevice)
     robot.ping(robot.esp)
-    robot.set_homeXY()
     robot.set_homeZ()
+    robot.set_homeXY()
     robot.readPosition()
-    robot.writeTrajectory(3, 300, 300, 1000, 0)
-    robot.writeTrajectory(3, 100, 100, 3000, 200)
+    robot.writeTrajectory(5, 300, 300, 1000, 0)
+    robot.writeTrajectory(5, 100, 100, 3000, 200)
+    robot.gripper(0)
+    robot.gripper(180)
     
     robot.connectXY()
     robot.ping(robot.serialDevice)
@@ -177,8 +181,10 @@ def main():
     robot.ping(robot.esp)
     robot.gripper(120)
     robot.set_homeZ()
-    robot.writeTrajectoryZ(3, 3000, 0)
-    robot.writePositionZ(200, 10)
+    robot.writeTrajectoryZ(5, 3000, 200)
+    robot.writeTrajectoryZ(5, 0, 0)
+    robot.writePositionZ(1000, 200)
+    robot.writePositionZ(8000, 200)
     
     
     
