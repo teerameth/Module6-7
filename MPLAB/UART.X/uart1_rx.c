@@ -15,9 +15,9 @@
 #define G 9.782970341
 #define CON_T 0.010
 
-float pwm_x, kp_x = 1.0, ki_x = 0.0, kd_x = 7.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
+float pwm_x, kp_x = 2.0, ki_x = 0.0, kd_x = 7.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
 float pwm_vel_x, kp_vel_x = 0.970, ki_vel_x = 0.021, kd_vel_x = 0.25, prev_err_vel_x, setpoint_vel_x, i_term_vel_x, d_term_vel_x, feedback_vel_x, new_error_vel_x, vel_x=0;
-float pwm_y, kp_y = 1.0, ki_y = 0.0, kd_y = 7.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
+float pwm_y, kp_y = 2.0, ki_y = 0.0, kd_y = 7.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
 float pwm_vel_y, kp_vel_y = 1.60, ki_vel_y = 0.045, kd_vel_y = 0.3, prev_err_vel_y, setpoint_vel_y, i_term_vel_y, d_term_vel_y, feedback_vel_y, new_error_vel_y, vel_y=0;
 float sigma_a_x =14; // adjustable
 float sigma_w_x =1.30; // adjustable

@@ -72,17 +72,32 @@ class Robot():
         return True
     def writePositionZ(self, z, a):
         ## Z ## {255, 255, 5, 3, 0, high_byte, low_byte, checkSum}
-        packet = [0xFF, 0xFF, 5, 0x00, int(z/256), z%256]
+        packet = [0xFF, 0xFF, 5, 0x03, 0, int(z/256), z%256]
         apply_checksum(packet)
         self.esp.write(packet)
         print(packet)
+        time.sleep(0.2)
         ## A ## {255, 255, 5, 3, 1, high_byte, low_byte, checkSum}
-        packet = [0xFF, 0xFF, 6, 0x03, int(a/256), a%256]
+        packet = [0xFF, 0xFF, 5, 0x03, 1, int(a/256), a%256]
         apply_checksum(packet)
         self.esp.write(packet)
         print(packet)
     def writeTrajectory(self, t, x1, y1, z1 ,a1): # Ack {255, 255, 3, 4, 1, 0} every move
         x0, y0 = self.readPosition()
+        print("X0=" + str(x0)+"Y0=" + str(y0))
+        ## Z ## {255, 255, 8, 3, 2, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
+        packet = [0xFF, 0xFF, 7, 0x03, 0x02, int(z1/256), int(z1%256), int(t*1000/256), int(t*1000)%256]
+        apply_checksum(packet)
+        print(packet)
+        self.esp.write(packet)
+        time.sleep(0.01)
+        ## A ## {255, 255, 8, 3, 3, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
+        t_esp = t * 0.85
+        packet = [0xFF, 0xFF, 7, 0x03, 0x03, int(a1/256), int(a1%256), int(t_esp*1000/256), int(t_esp*1000)%256]
+        apply_checksum(packet)
+        print(packet)
+        self.esp.write(packet)
+        ## XY ##
         z0, z1 = 0, 0
         c3,c4,theta,gramma = self.tj_solve(t, x1, y1, z1, x0, y0, z0)
         c3_packet = [0 if c3>0 else 1, int(abs(c3))%256, int((abs(c3)*100)%100), int((abs(c3)*10000)%100)]
@@ -94,19 +109,24 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         print("PIC: " + str(packet))
-        ## Z ## {255, 255, 8, 3, 0, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
-        packet = [0xFF, 0xFF, 8, 0x03, 0x00, int(z1/256), int(z1%256), int(t*1000/256), int(t*1000)%256]
-        apply_checksum(packet)
-        self.esp.write(packet)
-        ## A ## {255, 255, 8, 3, 1, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
-        packet = [0xFF, 0xFF, 8, 0x03, 0x00, int(a1/256), int(a1%256), int(t*1000/256), int(t*1000)%256]
-        apply_checksum(packet)
-        self.esp.write(packet)
-
+        
         time.sleep(0.1)
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
         if len(responsePacket) != 4: return False # Doesn't receive acknowledge
         return True
+    def writeTrajectoryZ(self, t, z1 ,a1):
+        ## Z ## {255, 255, 8, 3, 2, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
+        packet = [0xFF, 0xFF, 7, 0x03, 0x02, int(z1/256), int(z1%256), int(t*1000/256), int(t*1000)%256]
+        apply_checksum(packet)
+        print(packet)
+        self.esp.write(packet)
+        time.sleep(0.01)
+        ## A ## {255, 255, 8, 3, 3, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
+        packet = [0xFF, 0xFF, 7, 0x03, 0x03, int(a1/256), int(a1%256), int(t*1000/256), int(t*1000)%256]
+        apply_checksum(packet)
+        print(packet)
+        self.esp.write(packet)
+        time.sleep(0.1)
     def gripper(self, angle): # {255, 255, 3, 6, servoPos, checksum}
         packet = [0xFF, 0xFF, 3, 6, angle]
         apply_checksum(packet)
@@ -138,11 +158,31 @@ class Robot():
         self.closeXY()
         self.closeZ()
 def main():
-    robot = Robot("COM4", 115200, "COM12", 115200)
+    robot = Robot("COM5", 115200, "COM12", 115200)
+    robot.connect()
+    robot.ping(robot.serialDevice)
+    robot.ping(robot.esp)
+    robot.set_homeXY()
+    robot.set_homeZ()
+    robot.readPosition()
+    robot.writeTrajectory(3, 300, 300, 1000, 0)
+    robot.writeTrajectory(3, 100, 100, 3000, 200)
+    
+    robot.connectXY()
+    robot.ping(robot.serialDevice)
+    robot.set_homeXY()
+    robot.readPosition()
+    
     robot.connectZ()
     robot.ping(robot.esp)
     robot.gripper(120)
     robot.set_homeZ()
-    robot.writePositionZ(10, 10)
+    robot.writeTrajectoryZ(3, 3000, 0)
+    robot.writePositionZ(200, 10)
+    
+    
+    
+    
+    
 if __name__ == '__main__':
     main()

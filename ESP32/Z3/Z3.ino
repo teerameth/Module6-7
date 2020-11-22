@@ -1,7 +1,7 @@
 #include "BluetoothSerial.h"
 #include <ArduinoOTA.h>
 #include <ESP32Servo.h>
-#define STEP_PER_ROUND 800
+#define STEP_PER_ROUND 400
 #define B_zero (int)(STEP_PER_ROUND/2)
 BluetoothSerial SerialBT;
 hw_timer_t * timer = NULL;
@@ -14,10 +14,12 @@ const int proximityPin = 27; // Active LOW
 const int gripperServoPin = 14;
 const int limitSwitchPin = 12; // Homing switch
 float pulseDelay; // 1000 for 28byj-48, 500 for NEMA-17
+bool led_state = false;
 int gripper_pos = 0;
 int stepAPos = 0, stepBPos = B_zero, stepADes = 0, stepBDes = 0;
 Servo gripper_servo;
 volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
+int reportCnt = 0;
 int stepPin, dirPin, delta;
 int deltaA, deltaB;
 uint8_t stack[40], ack_packet[20];
@@ -30,8 +32,9 @@ void shift_buffer(int n, uint8_t *buffer, int buffer_size);
 void applyCheckSum(uint8_t *buffer, int length);
 
 void IRAM_ATTR onStepper(){
-  if(tA_left > 0)tA_left--; // Time counter in ms.
-  if(tB_left > 0)tB_left--;
+  reportCnt++;
+  if(tA_left > 1)tA_left--; // Time counter in ms.
+  if(tB_left > 1)tB_left--;
   deltaA = stepADes - stepAPos;
   if(deltaA){
     t_stepA = tA_left/abs(deltaA);
@@ -82,15 +85,20 @@ void setup() {
   pinMode(stepPinB, OUTPUT);
   pinMode(proximityPin, OUTPUT);
   gripper_servo.attach(gripperServoPin);
-  timer = timerBegin(0, 240, true); // timer 0, divider 240, count up
+  timer = timerBegin(0, 80, true); // timer 0, divider 80, count up
   timerAttachInterrupt(timer, &onStepper, true);
   timerAlarmWrite(timer, 1000, true); // call every 1000 ticks (1ms.)
   timerAlarmEnable(timer);
   Serial.println("Start Timer");
 }
 void loop() {
+  if(reportCnt > 200){
+    reportCnt = 0;
+    digitalWrite(2, led_state);
+    led_state = !led_state;
+    Serial.printf("tA_left: %d, tB_left: %d\n", tA_left, tB_left);
+  }
   
-
   if(SerialBT.available()){
     byte_in = SerialBT.read();
     stack[stackSize] = byte_in;
@@ -123,7 +131,6 @@ void loop() {
                     for(int i=startIndex+2;i<startIndex+packetLength+2;i++){checksum+=stack[i];}
                     checksum = ~checksum;
                     if(stack[startIndex+packetLength+2] == checksum){ // Checksum correct
-//                        Serial.println("Checksum Passed!\n");
                         uart_state = 3;
                         break;
                     }
@@ -154,26 +161,32 @@ void loop() {
                             SerialBT.write(ack_packet, 7);
                             Serial.printf("Z_pos = %d", stepAPos);
                             break;
-                        case 3: //Write (z) (a) {255, 255, 5, 3, 0/1, high_byte, low_byte, checkSum} or {255, 255, 7, 3, 0/1, high_byte, low_byte, t_1, t_2, checkSum}
+                        case 3: //Write (z) (a) {255, 255, 5, 3, 0/1, high_byte, low_byte, checkSum} or {255, 255, 7, 3, 2/3, high_byte, low_byte, t_1, t_2, checkSum}
+                            t_stepACnt = 0;
+                            t_stepBCnt = 0;
                             switch(stack[startIndex+4]){
                               case 0: // Z-axis
                                 stepADes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
+                                Serial.printf("Z goto %d\n", int(stack[startIndex+5]*256 + stack[startIndex+6]));
                                 break;
                               case 1: // Alpha
                                 stepBDes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
+                                Serial.printf("A goto %d\n", int(stack[startIndex+5]*256 + stack[startIndex+6]));
                                 break;
                               case 2: // Z-axis with time
                                 stepADes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
-                                tA_left = stack[startIndex+7]*256 + stack[startIndex+8]; // time in ms.
+                                tA_left = int(stack[startIndex+7]*256 + stack[startIndex+8]); // time in ms.
+                                Serial.printf("Z goto %d in %d miilisec\n", int(stack[startIndex+5]*256 + stack[startIndex+6]), int(stack[startIndex+7]*256 + stack[startIndex+8]));
                                 break;
                               case 3: // Alpha with time
                                 stepBDes = int(stack[startIndex+5]*256 + stack[startIndex+6]);
-                                tB_left = stack[startIndex+7]*256 + stack[startIndex+8]; // time in ms.
+                                tB_left = int(stack[startIndex+7]*256 + stack[startIndex+8]); // time in ms.
+                                Serial.printf("A goto %d in %d miilisec\n", int(stack[startIndex+5]*256 + stack[startIndex+6]), int(stack[startIndex+7]*256 + stack[startIndex+8]));
                                 break;
                               default:
                                 break;
                             }
-                            Serial.printf("Z goto %d", int(stack[startIndex+5]*256 + stack[startIndex+6]));
+                            
                             break;
                         case 4: //Write Trajectory {255, 255, n+2, 4, c3_0, c3_1, c3_2, c3_3, c4_0, c4_1, c4_2, c4_3, gamma_0, gamma_1, gamma_2, gamma_3, t_1, t_2, t_3, checkSum}
 //                            stepMaiGo(((stack[startIndex+4]==0)?1.0:-1.0)*(((float)stack[startIndex+5])+((float)stack[startIndex+6])/100+((float)stack[startIndex+7])/10000),
@@ -182,7 +195,7 @@ void loop() {
 //                            (((float)stack[startIndex+16])+((float)stack[startIndex+17])/100+((float)stack[startIndex+18])/10000));
                             break;
                         case 5: // Home {255, 255, 3, 5, 0, checksum}
-                            Serial.printf("Set Home!");
+                            Serial.printf("Set Home\n");
                             setZero();
                             break;
                         case 6: // Gripper servo {255, 255, 3, 6, servoPos, checksum}
@@ -213,7 +226,9 @@ void setZero() {
   // Reset remembered position
   stepAPos = 0;
   stepBPos = B_zero;
-  Serial.printf("Homed!");
+  stepADes = 0;
+  stepBDes = B_zero;
+  Serial.printf("Homed!\n");
 }
 //void stepMaiGo(float C3,float C4, float Tf,float Gramma) {
 //  c1 = 0;
