@@ -48,6 +48,7 @@ class Robot():
             if len(responsePacket) > 3: break
             time.sleep(0.5)
     def set_homeZ(self):
+        self.Z = 0
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
         self.esp.write(packet)
@@ -73,6 +74,7 @@ class Robot():
         if len(responsePacket) != 4: return False # Doesn't receive acknowledge
         return True
     def writePositionZ(self, z, a):
+        self.Z = z
         ## Z ## {255, 255, 5, 3, 0, high_byte, low_byte, checkSum}
         packet = [0xFF, 0xFF, 5, 0x03, 0, int(z/256), z%256]
         apply_checksum(packet)
@@ -87,6 +89,36 @@ class Robot():
     def writeTrajectory(self, t, x1, y1, z1 ,a1): # Ack {255, 255, 3, 4, 1, 0} every move
         x0, y0 = self.readPosition()
         print("X0=" + str(x0)+"Y0=" + str(y0))
+        z0 = self.Z
+        self.Z = z1
+        c3,c4,theta,gramma = self.tj_solve(t, x1, y1, z1, x0, y0, z0)
+        c3_packet = [0 if c3>0 else 1, int(abs(c3))%256, int((abs(c3)*100)%100), int((abs(c3)*10000)%100)]
+        c4_packet = [0 if c4>0 else 1, int(abs(c4))%256, int((abs(c4)*100)%100), int((abs(c4)*10000)%100)]
+        theta_packet = [0 if theta>0 else 1, int(abs(theta))%256, int((abs(theta)*100)%100), int((abs(theta)*10000)%100)]
+        gramma_packet = [0 if gramma>0 else 1, int(abs(gramma))%256, int((abs(gramma)*100)%100), int((abs(gramma)*10000)%100)]
+        t_packet = [int(t)%256, int((t*100)%100), int((t*10000)%100)]
+        ## Z ## {255, 255, 16, 4, c3_0, c3_1, c3_2, c3_3, c4_0, c4_1, c4_2, c4_3, gamma_0, gamma_1, gamma_2, gamma_3, t_1, t_2, t_3, checkSum} // t = time in ms.
+        packet = [0xFF, 0xFF, 17, 0x04] + c3_packet + c4_packet + gramma_packet + t_packet
+        apply_checksum(packet)
+        self.esp.write(packet)
+        print("ESP_Z: " + str(packet))
+        time.sleep(0.02)
+        ## A ## 
+        packet = [0xFF, 0xFF, 7, 0x03, 0x01, int(a1/256), int(a1%256), int(t*1000/256), int(t*1000)%256]
+        apply_checksum(packet)
+        self.esp.write(packet)
+        ## XY ##
+        packet = [0xFF, 0xFF, 21, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
+        apply_checksum(packet)
+        self.serialDevice.write(packet)
+        print("PIC: " + str(packet))
+        
+        time.sleep(0.1)
+        responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
+        if len(responsePacket) != 4: return False # Doesn't receive acknowledge
+        return True
+    def writeLinearZ(self, t, z1, a1):
+        self.Z = z1
         ## Z ## {255, 255, 8, 3, 2, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
         packet = [0xFF, 0xFF, 7, 0x03, 0x02, int(z1/256), int(z1%256), int(t*1000/256), int(t*1000)%256]
         apply_checksum(packet)
@@ -99,36 +131,6 @@ class Robot():
         apply_checksum(packet)
         print(packet)
         self.esp.write(packet)
-        ## XY ##
-        z0, z1 = 0, 0
-        c3,c4,theta,gramma = self.tj_solve(t, x1, y1, z1, x0, y0, z0)
-        c3_packet = [0 if c3>0 else 1, int(abs(c3))%256, int((abs(c3)*100)%100), int((abs(c3)*10000)%100)]
-        c4_packet = [0 if c4>0 else 1, int(abs(c4))%256, int((abs(c4)*100)%100), int((abs(c4)*10000)%100)]
-        theta_packet = [0 if theta>0 else 1, int(abs(theta))%256, int((abs(theta)*100)%100), int((abs(theta)*10000)%100)]
-        gramma_packet = [0 if gramma>0 else 1, int(abs(gramma))%256, int((abs(gramma)*100)%100), int((abs(gramma)*10000)%100)]
-        t_packet = [int(t)%256, int((t*100)%100), int((t*10000)%100)]
-        packet = [0xFF, 0xFF, 21, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
-        apply_checksum(packet)
-        self.serialDevice.write(packet)
-        print("PIC: " + str(packet))
-        
-        time.sleep(0.1)
-        responsePacket = self.serialDevice.read(self.serialDevice.inWaiting()) # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
-        if len(responsePacket) != 4: return False # Doesn't receive acknowledge
-        return True
-    def writeTrajectoryZ(self, t, z1 ,a1):
-        ## Z ## {255, 255, 8, 3, 2, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
-        packet = [0xFF, 0xFF, 7, 0x03, 0x02, int(z1/256), int(z1%256), int(t*1000/256), int(t*1000)%256]
-        apply_checksum(packet)
-        print(packet)
-        self.esp.write(packet)
-        time.sleep(0.01)
-        ## A ## {255, 255, 8, 3, 3, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
-        packet = [0xFF, 0xFF, 7, 0x03, 0x03, int(a1/256), int(a1%256), int(t*1000/256), int(t*1000)%256]
-        apply_checksum(packet)
-        print(packet)
-        self.esp.write(packet)
-        time.sleep(0.1)
     def gripper(self, angle): # {255, 255, 3, 6, servoPos, checksum} 20=close, 170=open
         packet = [0xFF, 0xFF, 3, 6, angle]
         apply_checksum(packet)
@@ -166,11 +168,10 @@ def main():
     robot.ping(robot.esp)
     robot.set_homeZ()
     robot.set_homeXY()
-    robot.readPosition()
     robot.writeTrajectory(5, 300, 300, 1000, 0)
-    robot.writeTrajectory(5, 100, 100, 3000, 200)
-    robot.gripper(0)
-    robot.gripper(180)
+    robot.writeTrajectory(5, 10, 10, 3000, 200)
+    robot.gripper(20)
+    robot.gripper(170)
     
     robot.connectXY()
     robot.ping(robot.serialDevice)
@@ -184,9 +185,18 @@ def main():
     robot.writeTrajectoryZ(5, 3000, 200)
     robot.writeTrajectoryZ(5, 0, 0)
     robot.writePositionZ(1000, 200)
-    robot.writePositionZ(8000, 200)
+    robot.writePositionZ(7000, 200)
     
     
+    robot.writeTrajectory(3, 374, 334, 4000, 200)
+    
+    robot.writeTrajectory(15, 10, 10, 60, 200)
+
+    robot.writeTrajectory(10, 169/2, 284/2, 200, 200)
+    time.sleep(11)
+    robot.writeTrajectory(5, 188/2, 379/2, 200, 200)
+    time.sleep(6)
+    robot.writeTrajectory(10, 504/2, 563/2, 100, 200)
     
     
     
