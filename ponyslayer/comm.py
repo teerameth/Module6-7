@@ -190,9 +190,9 @@ def main():
     
     robot.writeTrajectory(3, 374, 334, 4000, 200)
     
-    robot.writeTrajectory(15, 10, 10, 60, 200)
+    robot.writeTrajectory(5, 10, 10, 100, 200)
 
-    robot.writeTrajectory(10, 169/2, 284/2, 200, 200)
+    robot.writeTrajectory(10, 169/2, 284/2, 100, 200)
     time.sleep(11)
     robot.writeTrajectory(5, 188/2, 379/2, 200, 200)
     time.sleep(6)

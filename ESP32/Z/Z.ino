@@ -37,15 +37,18 @@ void IRAM_ATTR onTimer(){
         Q_dot_t = c2 + 2 * c3 * (t - ti) + 3 * c4 * (t - ti) * (t - ti);
         setpoint_z = z0 + (Q_t) * sin(gramma);
         vel_z = (Q_dot_t) * sin(gramma);
-        if (vel_z > 0)
+        delta = ((int)(setpoint_z*500.0/14.0)) - stepAPos;
+        if (delta > 0)
         {
           digitalWrite(dirPinA, LOW);
+          stepAPos++;
         }
         else
         {
           digitalWrite(dirPinA, HIGH);
+          stepAPos--;
         }
-        pulseDelay = (224 * 1000000) / (8000 * vel_z);
+        pulseDelay = (setpoint_z)*1000000 / (vel_z);
         digitalWrite(stepPinA, HIGH);
         digitalWrite(stepPinA, LOW);
 //        delayMicroseconds(pulseDelay);
