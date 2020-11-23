@@ -13,14 +13,15 @@
 
 #define PI 3.14159265
 #define G 9.782970341
-#define CON_T 0.010
-
-float pwm_x, kp_x = 2.0, ki_x = 0.0, kd_x = 7.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
-float pwm_vel_x, kp_vel_x = 0.970, ki_vel_x = 0.021, kd_vel_x = 0.25, prev_err_vel_x, setpoint_vel_x, i_term_vel_x, d_term_vel_x, feedback_vel_x, new_error_vel_x, vel_x=0;
-float pwm_y, kp_y = 2.0, ki_y = 0.0, kd_y = 7.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
-float pwm_vel_y, kp_vel_y = 1.60, ki_vel_y = 0.045, kd_vel_y = 0.3, prev_err_vel_y, setpoint_vel_y, i_term_vel_y, d_term_vel_y, feedback_vel_y, new_error_vel_y, vel_y=0;
-float sigma_a_x =14; // adjustable
-float sigma_w_x =1.30; // adjustable
+#define CON_T 0.002
+float prev_pos_x;
+float prev_pos_y;
+float pwm_x, kp_x = 1.0, ki_x = 0.0, kd_x = 2.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
+float pwm_vel_x, kp_vel_x = 1.2, ki_vel_x = 0.012, kd_vel_x = 2.5, prev_err_vel_x, setpoint_vel_x, i_term_vel_x, d_term_vel_x, feedback_vel_x, new_error_vel_x, vel_x=0;
+float pwm_y, kp_y = 0.50, ki_y = 0.0, kd_y = 2.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
+float pwm_vel_y, kp_vel_y = 1.0, ki_vel_y = 0.01, kd_vel_y = 2.0, prev_err_vel_y, setpoint_vel_y, i_term_vel_y, d_term_vel_y, feedback_vel_y, new_error_vel_y, vel_y=0;
+float sigma_a_x =8; // adjustable
+float sigma_w_x =1.50; // adjustable
 
 float w_update_x =0, w_inKalman_x = 0, w_outKalman_x = 0; 
 // float kumara_base_yaw =0;
@@ -32,8 +33,8 @@ float p12_x = 0, p21_x = 0;
 float p22_x = 0.9; // adjustable
 float cur_theta_x, prev_theta_x;
 
-float sigma_a_y =14; // adjustable
-float sigma_w_y =1.30; // adjustable
+float sigma_a_y =8; // adjustable
+float sigma_w_y =1.50; // adjustable
 
 float w_update_y =0;
 float w_inKalman_y = 0;
@@ -218,13 +219,13 @@ void writePosition(float x, float y){
 void setHome(){
     while(_RB12)
     {
-        motorX(-30);//-19
+        motorX(-20);//-19
     }
     motorX(0);
     
     while(_RB11)
     {
-        motorY(-25);//1
+        motorY(-20);//1
     }
     motorY(0);
     delay();
@@ -406,9 +407,9 @@ void setup(){
 
      T1CONbits.TCKPS = 0b01; //set timer prescaler to 1:64 interrupt
      T2CONbits.TCKPS = 0b10;
-     T3CONbits.TCKPS = 0b00; // set timer PWM
+     T3CONbits.TCKPS = 0b01; // set timer PWM
 
-     PR1 = 50000;
+     PR1 = 10000;
      PR2 = 12500;             //set period interrupt
      PR3 = 12500;            // set period PWM
 
@@ -487,21 +488,23 @@ void setup(){
     TRISA = 0xFFFF;
 }
 float read_posX()
-{
+{   
     float pos_x = (float)POS1CNT*81.6/(3413.0*2.0);
-    if(pos_x < 0)
+    if(pos_x - prev_pos_x > 200)
     {
         pos_x = 0;
     }
+    prev_pos_x = pos_x;
     return pos_x;
 }
 float read_posY()
 {
     float pos_y = (float)POS2CNT*81.6/(3413.0*2.0);
-    if(pos_y < 0)
+    if(pos_y - prev_pos_y > 200)
     {
         pos_y = 0;
     }
+    prev_pos_y = pos_y;
     return pos_y;
 }
 void motorY(int speed)
