@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 K = 3
 attempts=10
 
-img = cv2.imread("Real6.png")
+img = cv2.imread("./img/Real6.png")
 gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 img=cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 

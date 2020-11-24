@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import SpoutSDK
-import pygame
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
@@ -42,25 +41,25 @@ def main():
 
     cast = VDO2Unity()
     cast.createChannel(1280, 720, '1')
-    cast.createChannel(1280, 720, '2')
-    cast.createChannel(1280, 720, '3')
-    cast.createChannel(1280, 720, '4')
-    cast.createChannel(1280, 720, '5')
-    cast.createChannel(1280, 720, '6')
-    cast.createChannel(1280, 720, '7')
-    cast.createChannel(1280, 720, '8')
+    # cast.createChannel(1280, 720, '2') 
+    # cast.createChannel(1280, 720, '3')
+    # cast.createChannel(1280, 720, '4')
+    # cast.createChannel(1280, 720, '5')
+    # cast.createChannel(1280, 720, '6')
+    # cast.createChannel(1280, 720, '7')
+    # cast.createChannel(1280, 720, '8')
 
     while True:
         frame = cap.read()[1]
         cast.send('1', frame)
-        cast.send('2', cv2.cvtColor(frame, cv2.COLOR_BGR2HSV))
-        cast.send('3', cv2.cvtColor(frame, cv2.COLOR_BGR2LAB))
-        cast.send('4', cv2.cvtColor(frame, cv2.COLOR_BGR2HLS))
-        frame = cv2.flip(frame, 0)
-        cast.send('5', cv2.cvtColor(frame, cv2.COLOR_BGR2HSV))
-        cast.send('6', cv2.cvtColor(frame, cv2.COLOR_BGR2LAB))
-        cast.send('7', cv2.cvtColor(frame, cv2.COLOR_BGR2HLS))
-        cast.send('8', frame)
+        # cast.send('2', cv2.cvtColor(frame, cv2.COLOR_BGR2HSV))
+        # cast.send('3', cv2.cvtColor(frame, cv2.COLOR_BGR2LAB))
+        # cast.send('4', cv2.cvtColor(frame, cv2.COLOR_BGR2HLS))
+        # frame = cv2.flip(frame, 0)
+        # cast.send('5', cv2.cvtColor(frame, cv2.COLOR_BGR2HSV))
+        # cast.send('6', cv2.cvtColor(frame, cv2.COLOR_BGR2LAB))
+        # cast.send('7', cv2.cvtColor(frame, cv2.COLOR_BGR2HLS))
+        # cast.send('8', frame)
 
 if __name__ == '__main__':
     main()

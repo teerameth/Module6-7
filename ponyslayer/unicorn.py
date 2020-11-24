@@ -420,3 +420,37 @@ class Path():
                 else: z_buffer.append((intensity - intensity_thresh_min) * (height_range) / intensity_range + min_height)
         for i, (x, y) in enumerate(self.waypoints): self.waypoints3D.append((x, y, z_buffer[i]))
         return self.waypoints3D
+    def generate_trajectory3D_rev3(self, src, min_height, max_height, gradient_crop_ratio, min_intensity_range, path_cnts_approx): # Use points to sample intensity
+        self.waypoints3D = []
+        intensity_buffer = []
+        for (x, y) in self.waypoints: intensity_buffer.append(255 - src[y][x])
+        height_range = max_height - min_height
+        hist, bins = np.histogram(intensity_buffer, 256, [0, 256])
+        cdf = hist.cumsum()
+        #     print(cdf)
+        cdf_max = cdf[-1]
+        cdf_thresh_min = int(cdf_max * (1 - gradient_crop_ratio) / 2)
+        cdf_thresh_max = int(cdf_max * (1 + gradient_crop_ratio) / 2)
+        sorted_intensity = sorted(intensity_buffer)
+        intensity_thresh_min = sorted_intensity[cdf_thresh_min]
+        intensity_thresh_max = sorted_intensity[cdf_thresh_max]
+        intensity_range = intensity_thresh_max - intensity_thresh_min
+        if intensity_range < min_intensity_range: z_buffer = [-1 for i in range(len(self.waypoints))] # This is not gradient (z=-1 -> Hold height)
+        else:
+            z_buffer = []
+            for intensity in intensity_buffer:
+                if intensity <= intensity_thresh_min: z_buffer.append(min_height)
+                elif intensity >= intensity_thresh_max: z_buffer.append(max_height)
+                else: z_buffer.append((intensity - intensity_thresh_min) * (height_range) / intensity_range + min_height)
+        for i, (x, y) in enumerate(self.waypoints): self.waypoints3D.append((x, y, z_buffer[i]))
+        waypoints3D_approx = []
+        for point_approx in path_cnts_approx:
+            best = self.waypoints3D[0]
+            best_distance = euclidean((point_approx[0][0], point_approx[0][1]), (best[0], best[1]))
+            for candidate in self.waypoints3D:
+                distance = euclidean((point_approx[0][0], point_approx[0][1]), (candidate[0], candidate[1]))
+                if distance < best_distance:
+                    best_distance = distance
+                    best = candidate
+            waypoints3D_approx.append(best)
+        return waypoints3D_approx
