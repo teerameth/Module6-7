@@ -186,6 +186,7 @@ int main(void) {
                             if(stack[startIndex+4] == 0){
                                 circle_running = true;
                                 circular_nf = stack[startIndex+5];
+                                t=0;
                             }
                             break;
                         default:
@@ -263,7 +264,6 @@ void setHome(){
 }
 void circularMotion(int nf){
     float tf1 = 6.28;
-    t = 0;
     if(t<3)
     {
         ti = 0;
@@ -323,6 +323,9 @@ void circularMotion(int nf){
         y0 = 250;
         path_mode = 1;
         tf = (tf1*n)+8;
+    }
+    else if(t > (tf1*n)+8 && n > nf && t > 8){
+        circle_running = false;
     }
     if((t > (tf1*n)+8) && n <= nf)
     {
