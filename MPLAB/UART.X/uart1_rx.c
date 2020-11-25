@@ -217,6 +217,26 @@ void writePosition(float x, float y){
     setpoint_vel_y = 0;
 }
 void setHome(){
+    T1CONbits.TON =0;  
+    T2CONbits.TON =0;
+    setpoint_x = 0;
+    setpoint_y = 0;
+    setpoint_vel_x = 0;
+    setpoint_vel_y = 0;
+    c1 = 0;
+    c2 = 0;
+    c3 = 0;
+    c4 = 0;
+    t = 0;
+    tf = 0;
+    i_term_x = 0;
+    d_term_x = 0;
+    i_term_vel_x = 0;
+    d_term_vel_x = 0;
+    i_term_y = 0;
+    d_term_y = 0;
+    i_term_vel_y = 0;
+    d_term_vel_y = 0;
     while(_RB12)
     {
         motorX(-20);//-19
@@ -243,6 +263,7 @@ void setHome(){
 }
 void circularMotion(int nf){
     float tf1 = 6.28;
+    t = 0;
     if(t<3)
     {
         ti = 0;

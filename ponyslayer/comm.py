@@ -86,6 +86,19 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
         print(packet)
+    def writeTrajectoryXY(self, t, x1, y1):
+        x0, y0 = self.readPosition()
+        print("X0=" + str(x0)+"Y0=" + str(y0))
+        c3,c4,theta,gramma = self.tj_solve(t, x1, y1, 0, x0, y0, 0)
+        c3_packet = [0 if c3>0 else 1, int(abs(c3))%256, int((abs(c3)*100)%100), int((abs(c3)*10000)%100)]
+        c4_packet = [0 if c4>0 else 1, int(abs(c4))%256, int((abs(c4)*100)%100), int((abs(c4)*10000)%100)]
+        theta_packet = [0 if theta>0 else 1, int(abs(theta))%256, int((abs(theta)*100)%100), int((abs(theta)*10000)%100)]
+        gramma_packet = [0 if gramma>0 else 1, int(abs(gramma))%256, int((abs(gramma)*100)%100), int((abs(gramma)*10000)%100)]
+        t_packet = [int(t)%256, int((t*100)%100), int((t*10000)%100)]
+        packet = [0xFF, 0xFF, 21, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
+        apply_checksum(packet)
+        self.serialDevice.write(packet)
+        print("PIC: " + str(packet))
     def writeTrajectory(self, t, x1, y1, z1 ,a1): # Ack {255, 255, 3, 4, 1, 0} every move
         x0, y0 = self.readPosition()
         print("X0=" + str(x0)+"Y0=" + str(y0))
@@ -140,10 +153,11 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         count = 0
-        while True:
-            responsePacket = self.serialDevice.read(self.serialDevice.inWaiting())
-            if len(responsePacket) == 6: count+=1
-            if count == 4*n: break # Wait for complete
+        time.sleep(8*n+8)
+        #while True:
+        #    responsePacket = self.serialDevice.read(self.serialDevice.inWaiting())
+        #    if len(responsePacket) == 6: count+=1
+        #    if count == 4*n: break # Wait for complete
     def tj_solve(self, t, x1, y1, z1, x0, y0, z0):
         print(t, x1, y1, z1, x0, y0, z0)
         qf = math.sqrt((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)
@@ -162,16 +176,19 @@ class Robot():
         self.closeXY()
         self.closeZ()
 def main():
-    robot = Robot("COM5", 115200, "COM12", 115200)
+    robot = Robot("COM14", 115200, "COM12", 115200)
     robot.connect()
     robot.ping(robot.serialDevice)
     robot.ping(robot.esp)
+    time.sleep(2)
     robot.set_homeZ()
     robot.set_homeXY()
+    robot.circular_motion(3)
     robot.writeTrajectory(5, 300, 300, 1000, 0)
-    robot.writeTrajectory(5, 10, 10, 3000, 200)
+    robot.writeTrajectory(5, 50, 20, 1000, 0)
     robot.gripper(20)
     robot.gripper(170)
+    robot.circular_motion(3)
     
     robot.connectXY()
     robot.ping(robot.serialDevice)
@@ -187,18 +204,22 @@ def main():
     robot.writePositionZ(1000, 200)
     robot.writePositionZ(7000, 200)
     
+    robot.writeTrajectoryXY(5, 100, 100)
     
     robot.writeTrajectory(3, 374, 334, 4000, 200)
     
     robot.writeTrajectory(5, 10, 10, 100, 200)
 
-    robot.writeTrajectory(10, 169/2, 284/2, 100, 200)
+    robot.writeTrajectory(6, 169/2, 284/2, 100, 200)
     time.sleep(11)
-    robot.writeTrajectory(5, 188/2, 379/2, 200, 200)
+    robot.writeTrajectory(3, 188/2, 379/2, 200, 200)
     time.sleep(6)
-    robot.writeTrajectory(10, 504/2, 563/2, 100, 200)
+    robot.writeTrajectory(5, 504/2, 563/2, 100, 200)
     
+    robot.circular_motion(2)
     
+    robot.writeTrajectory(10, 0, 0, 200, 200)
+    robot.writeTrajectory(10, 200, 200, 100, 200)
     
 if __name__ == '__main__':
     main()

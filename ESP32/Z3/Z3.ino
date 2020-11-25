@@ -3,14 +3,15 @@
 #include <ESP32Servo.h>
 #define STEP_PER_ROUND 400
 #define B_zero (int)(STEP_PER_ROUND/2)
+#define motorInterfaceType 1
 BluetoothSerial SerialBT;
 hw_timer_t * timer = NULL;
 // Note: 200cycles : 5mm.
-const int dirPinA = 25;
-const int stepPinA = 26;
+const int dirPinA = 25; // 26 for old board
+const int stepPinA = 26; // 25 for old board
 const int dirPinB = 32;
 const int stepPinB = 33;
-const int proximityPin = 27; // Active LOW
+//const int proximityPin = 27; // Active LOW
 const int gripperServoPin = 14;
 const int limitSwitchPin = 12; // Homing switch
 float pulseDelay; // 1000 for 28byj-48, 500 for NEMA-17
@@ -18,6 +19,7 @@ bool led_state = false;
 int gripper_pos = 0;
 int stepAPos = 0, stepBPos = B_zero, stepADes = 0, stepBDes = 0;
 Servo gripper_servo;
+
 volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
 double c1 = 0,c2 = 0,c3,c4,gramma;
 volatile double theta_t, theta_dot_t, setpoint_z, vel_z, t,tf;
@@ -43,14 +45,18 @@ void IRAM_ATTR onStepper(){
   if(t<tf){
     theta_t = (((c4*t)+c3)*t+c2)*t+c1;
     theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
-//    setpoint_z = (theta_t)*sin(gramma);
+    setpoint_z = (theta_t)*sin(gramma);
     vel_z = (theta_dot_t)*sin(gramma);
-    t_stepA = abs(28/vel_z);// Period in ms./step (for speed control)
+//    if(vel_z != 0){
+//          t_stepA = abs(28/vel_z);// Period in ms./step (for speed control)
+//    }
     t_stepACnt++;
   }
+
+  delta = ((int)(setpoint_z*500.0/14.0)) - stepAPos;
   if(t_stepACnt > t_stepA){
     t_stepACnt -= t_stepA;
-    if(vel_z > 0){
+    if(delta > 0){
       digitalWrite(dirPinA, LOW);
       stepAPos++;
     }
@@ -76,6 +82,20 @@ void IRAM_ATTR onStepper(){
   }
   t += 0.001;
 }
+//void IRAM_ATTR onControl(){
+//   if(t<tf){
+//    theta_t = (((c4*t)+c3)*t+c2)*t+c1;
+//    theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
+//    setpoint_z = (theta_t)*sin(gramma);
+////    vel_z = (theta_dot_t)*sin(gramma);
+////    if(vel_z != 0){
+////          t_stepA = abs(28/vel_z);// Period in ms./step (for speed control)
+////    }
+//    t_stepACnt++;
+//  }
+//  delta = ((int)(setpoint_z*500.0/14.0)) - stepAPos;
+//  t += 0.02;
+//}
 
 void setup() {
   ack_packet[0] = 255;
@@ -87,19 +107,27 @@ void setup() {
   pinMode(stepPinA, OUTPUT);
   pinMode(dirPinB, OUTPUT);
   pinMode(stepPinB, OUTPUT);
-  pinMode(proximityPin, OUTPUT);
+//  pinMode(proximityPin, OUTPUT);
   gripper_servo.attach(gripperServoPin);
   timer = timerBegin(0, 80, true); // timer 0, divider 80, count up
   timerAttachInterrupt(timer, &onStepper, true);
   timerAlarmWrite(timer, 1000, true); // call every 1000 ticks (1ms.)
   timerAlarmEnable(timer);
+
+//  timer2 = timerBegin(1, 80, true); // timer 0, divider 80, count up
+//  timerAttachInterrupt(timer2, &onControl, true);
+//  timerAlarmWrite(timer2, 2000, true); // call every 1000 ticks (1ms.)
+//  timerAlarmEnable(timer2);
+
   Serial.println("Start Timer");
 }
 void loop() {
+
   if(reportCnt > 200){
     reportCnt = 0;
     digitalWrite(2, led_state);
     led_state = !led_state;
+    Serial.printf("delta %d\t:\t%f\n", delta,setpoint_z);
 //    Serial.printf("tA_left: %d, tB_left: %d\n", tA_left, tB_left);
 //    Serial.printf("Vel_Z = %f, t = %f, tf=%f\n", vel_z, t, tf);
   }
