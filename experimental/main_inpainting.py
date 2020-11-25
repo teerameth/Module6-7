@@ -12,16 +12,15 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
-
-from model import _netlocalD,_netG
-import utils
+#from model import _netlocalD,_netG
+#import utils
 epochs=100
 Batch_Size=64
 lr=0.0002
 beta1=0.5
 over=4
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataroot',  default='dataset/train', help='path to dataset')
+parser.add_argument('--dataroot',  default='X:/VOC2012/', help='path to dataset')
 opt = parser.parse_args()
 try:
     os.makedirs("result/train/cropped")
@@ -35,12 +34,11 @@ transform = transforms.Compose([transforms.Scale(128),
                                     transforms.CenterCrop(128),
                                     transforms.ToTensor(),
                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-dataset = dset.ImageFolder(root=opt.dataroot, transform=transform )
+dataset = dset.ImageFolder(root=opt.dataroot, transform=transform)
 assert dataset
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=Batch_Size,
-                                         shuffle=True, num_workers=2)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=Batch_Size, shuffle=True, num_workers=2)
 
-ngpu = int(opt.ngpu)
+ngpu = 1
 
 wtl2 = 0.999
 
@@ -56,11 +54,11 @@ def weights_init(m):
 
 resume_epoch=0
 
-netG = generator()
+netG = generator.generator()
 netG.apply(weights_init)
 
 
-netD = discriminator()
+netD = discriminator.discriminator()
 netD.apply(weights_init)
 
 criterion = nn.BCELoss()
@@ -105,6 +103,7 @@ for epoch in range(resume_epoch,epochs):
             input_cropped[:,0,int(128/4+over):int(128/4+128/2-over),int(128/4+over):int(128/4+128/2-over)] = 2*117.0/255.0 - 1.0
             input_cropped[:,1,int(128/4+over):int(128/4+128/2-over),int(128/4+over):int(128/4+128/2-over)] = 2*104.0/255.0 - 1.0
             input_cropped[:,2,int(128/4+over):int(128/4+128/2-over),int(128/4+over):int(128/4+128/2-over)] = 2*123.0/255.0 - 1.0
+            print(input_cropped.shape)
 
         #start the discriminator by training with real data---
         netD.zero_grad()
@@ -112,6 +111,9 @@ for epoch in range(resume_epoch,epochs):
             label.resize_(batch_size).fill_(real_label)
 
         output = netD(real_center)
+        #output = output.reshape(-1)
+        print(output)
+        print(label)
         errD_real = criterion(output, label)
         errD_real.backward()
         D_x = output.data.mean()
@@ -153,7 +155,6 @@ for epoch in range(resume_epoch,epochs):
                  errD.data, errG_D.data,errG_l2.data, D_x,D_G_z1, ))
 
         if i % 100 == 0:
-
             vutils.save_image(real_cpu,
                     'result/train/real/real_samples_epoch_%03d.png' % (epoch))
             vutils.save_image(input_cropped.data,
