@@ -1,38 +1,33 @@
 import numpy as np
 import cv2
-# def order_points(pts): # top-left, top-right, bottom-right, bottom-left
-# 	rect = np.zeros((4, 2), dtype = "float32")
-# 	s = pts.sum(axis = 1)
-# 	rect[0] = pts[np.argmin(s)]
-# 	rect[2] = pts[np.argmax(s)]
-# 	diff = np.diff(pts, axis = 1)
-# 	rect[1] = pts[np.argmin(diff)]
-# 	rect[3] = pts[np.argmax(diff)]
-# 	return rect
+
+cameraMatrix = np.array([[1395.3709390074625, 0.0, 984.6248356317226], [0.0, 1396.2122002126725, 534.9517311724618], [0.0, 0.0, 1.0]], np.float32) # Humanoid
+dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449, 0.004428959364733587, 0.06865838341764481]]) # Humanoid
+rvec = np.array([0.0, 0.0, 0.0]) # float only
+tvec = np.array([0.0, 0.0, 0.0]) # float only
+
+##################################
+### Perspective Transformation ###
+##################################
 def order_points(pts):
     # sort the points based on their x-coordinates
     xSorted = pts[np.argsort(pts[:, 0]), :]
-
     # grab the left-most and right-most points from the sorted
     # x-roodinate points
     leftMost = xSorted[:2, :]
     rightMost = xSorted[2:, :]
-
     # now, sort the left-most coordinates according to their
     # y-coordinates so we can grab the top-left and bottom-left
     # points, respectively
     leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
     (tl, bl) = leftMost
-
     # if use Euclidean distance, it will run in error when the object
     # is trapezoid. So we should use the same simple y-coordinates order method.
-
     # now, sort the right-most coordinates according to their
     # y-coordinates so we can grab the top-right and bottom-right
     # points, respectively
     rightMost = rightMost[np.argsort(rightMost[:, 1]), :]
     (tr, br) = rightMost
-
     # return the coordinates in top-left, top-right,
     # bottom-right, and bottom-left order
     return np.array([tl, tr, br, bl], dtype="float32")
@@ -50,8 +45,42 @@ def four_point_transform(image, pts):
 		[maxWidth - 1, 0],
 		[maxWidth - 1, maxHeight - 1],
 		[0, maxHeight - 1]], dtype = "float32")
-	# compute the perspective transform matrix and then apply it
-	M = cv2.getPerspectiveTransform(rect, dst)
+	M = cv2.getPerspectiveTransform(rect, dst) # compute the perspective transform matrix and then apply it
 	warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
-	# return the warped image
 	return warped
+################################
+### Aruco Perspective Warped ###
+################################
+parameters =  cv2.aruco.DetectorParameters_create()
+dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
+markerLength = 0.04
+markerSeparation = 0.01
+board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
+def aruco_crop(frame):
+	markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+	if markerIds is not None:
+		ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
+		if ret:
+			# cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1) # origin
+			T_marker = np.array([markerLength, markerLength, 0.0])
+			A = np.array([0.0, 0.0, 0.0]) + T_marker
+			B = np.array([0.4 + markerSeparation, 0.0, 0.0]) + T_marker
+			C = np.array([0.4 + markerSeparation, 0.4 + markerSeparation, 0.0]) + T_marker
+			D = np.array([0.0, 0.4 + markerSeparation, 0.0]) + T_marker
+			### Find Transformatio Matrix ###
+			rotM = np.zeros(shape=(3, 3))
+			cv2.Rodrigues(rvec, rotM, jacobian=0)
+			### Map to image coordinate ###
+			pts, jac = cv2.projectPoints(np.float32([A, B, C, D]).reshape(-1, 3), rvec, tvec, cameraMatrix, dist)
+			pts = np.array([tuple(pts[i].ravel()) for i in range(4)], dtype="float32")
+			pts = order_points(pts)
+		else: return 0
+		## Perspective Crop ##
+		warped = four_point_transform(frame, pts)
+		warped = cv2.resize(warped, (800, 800))
+		valid_mask = four_point_transform(np.ones(frame.shape[:2], dtype="uint8") * 255, pts)
+		valid_mask = cv2.resize(valid_mask, (800, 800))
+		# cv2.imshow("Warped", warped)
+		# cv2.imshow("Valid", valid_mask)
+		return warped, valid_mask
+	else: return 0

@@ -25,7 +25,7 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 # cap.set(3, 1920)
 # cap.set(4, 1080)
 
-cap = cv2.VideoCapture("../M.mp4")
+cap = cv2.VideoCapture("../O.mp4")
 cuda_stream = cv2.cuda_Stream()
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)
@@ -60,7 +60,6 @@ for J in range(N):
     if markerIds is not None:
         ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
         if ret:
-            
             # cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1) # origin
             T_marker = np.array([markerLength, markerLength, 0.0])
             A = np.array([0.0, 0.0, 0.0]) + T_marker
@@ -103,13 +102,8 @@ for J in range(N):
             valid_mask = cv2.bitwise_or(warped, warped, mask=valid_mask)
             final = cv2.bitwise_or(mean_canvas, valid_mask)
             cv2.imshow('Passed', final)
-            final_gpu = cv2.cuda_GpuMat()
-            final_gpu.upload(final)
-
-            final = cv2.cuda_GpuMat(final)
-            fgMask = backSub.apply(final, -1, cuda_stream)
-            fgMask = fgMask.download()
-            # fgMask = cv2.morphologyEx(fgMask, cv2.MORPH_CLOSE, kernel=np.ones((5,5),np.uint8))
+            final_gpu = cv2.cuda_GpuMat(final)
+            fgMask = backSub.apply(final_gpu, -1, cuda_stream).download()
             # cv2.imshow('FG Mask', fgMask)
             bg = cv2.cuda_GpuMat(final_gpu.size(),final_gpu.type())
             backSub.getBackgroundImage(cuda_stream, bg)
