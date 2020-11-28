@@ -1,6 +1,7 @@
 import cv2, numpy, time, os, threading, socket, imutils
 from unicorn2 import *
 from comm import *
+from transform import *
 backlog = 1
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('127.0.0.1', 12345))
@@ -13,7 +14,7 @@ state_name = ['setting', 'captureTemplate', 'captureWorkspace', 'reconstruction'
 USE_CUDA, AUTO_RUN, CIRCULAR_ROUND = True, True, 2
 cap = Camera()
 run, state, previous_state = 1, 1, 1
-event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0}
+event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'homeXY':0, 'circular_running':0}
 captured_image = {'template_raw':None, 'template':None, 'reconstructed':None}
 robot = Robot("COM8", 115200, "COM12", 115200)
 def send(packet):
@@ -67,15 +68,27 @@ def recieving():
                     send([3, 1, 3]) # Activate Load Animation
                     robot.set_homeZ()
                     robot.set_homeXY()
+                    event['homeXY'] = 1
                     send([3, 1, 2]) # Deactivate Load Animation
                 if data[2] == 1: # Home XY
                     send([3, 1, 3]) # Activate Load Animation
-                    robot.set_homeXY()
+                    if event['connectXY'] == 0: print('Not Connected')
+                    if event['homeXY'] == 0: robot.set_homeXY()
+                    else: robot.writeTrajectoryXY(5, 10, 10)
+                    event['homeXY'] = 1
                     send([3, 1, 2]) # Deactivate Load Animation
                 if data[2] == 2: # Home Z
                     send([3, 1, 3]) # Activate Load Animation
                     robot.set_homeZ()
                     send([3, 1, 2]) # Deactivate Load Animation
+                if data[2] == 3: # Center XY
+                    send([3, 1, 3])  # Activate Load Animation
+                    if event['homeXY'] == 0:
+                        event['homeXY'] = 1
+                        robot.set_homeXY()
+                    robot.writeTrajectoryXY(5, 200, 200)
+                    send([3, 1, 2]) # Deactivate Load Animation
+
 
 
 def mainThread():
@@ -99,9 +112,27 @@ def mainThread():
                 cv2.waitKey(1)
         if state == 2: # Capture Workspace
             frame = cap.read()
+            aruco = aruco_crop(frame)
+            if aruco != 0:  # if workspace avaliable
+                warped, valid_mask = aruco
+                if event['circular_running']:
+                    out_warped = cv2.VideoWriter('X:/warped.avi', fourcc, 20.0, (800, 800))
+                    out_masked = cv2.VideoWriter('X:/masked.avi', fourcc, 20.0, (800, 800))
+                    while event['circular_running']: # Time required = time.sleep(8*n+8)
+                        frame = cap.read()
+                        aruco = aruco_crop(frame)
+                        if aruco != 0:
+                            warped, valid_mask = aruco
+                            out_warped.write(warped)
+                            out_masked.write(valid_mask)
+                    out_warped.release()
+                    out_masked.release()
+
+                cast.send('2', warped)
             if event['circular']: # Capture button triggered
                 event['circular'] = 0 # Clear flag
                 # Z-axis up -> XY-axis home -> XY-axis circular -> Capture to RAMDisk
+                robot.circular_motion(3)
                 pass
         if state == 3: # Reconstruction
             pass

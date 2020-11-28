@@ -74,7 +74,7 @@ void recMotion(int nf);
 void delay();
 void motorY(int speed);
 void motorX(int speed);
-
+void sendAck();
 int main(void) {
     setup();
     while(1){
@@ -216,6 +216,13 @@ void writePosition(float x, float y){
     setpoint_y = y;
     setpoint_vel_x = 0;
     setpoint_vel_y = 0;
+}
+void sendAck(){
+    ack_packet[2] = 3;
+    ack_packet[3] = 5;
+    ack_packet[4] = 1;
+    applyCheckSum(ack_packet, 6);
+    sendUART(6, ack_packet, 0);
 }
 void setHome(){
     T1CONbits.TON =0;  
