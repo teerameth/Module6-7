@@ -54,7 +54,7 @@ int numByte;
 uint8_t dataArray[10], stack[40];
 unsigned int BufferA[10] __attribute__((space(dma)));
 uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum, circular_nf;
-bool circle_running = false, trajectory_running = false, homed = false;
+bool circle_running = false, trajectory_running = false, homed = false, circle_start = false;
 int cur_pos_x, cur_pos_y;
 uint8_t ack_packet[10] = {255, 255, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -276,17 +276,27 @@ void circularMotion(int nf){
         ti = 0;
         c1 = 0;
         c2 = 0;
-        c3 = 83.396;
-        c4 = -18.53;
+        c3 = 0;
+        c4 = 0;
         x0 = 0;
         y0 = 0;
-        theta = 1.53;
+        theta = 0;
         gramma = 0;
         path_mode = 0;
-        tf = 3;  
-    }  
-    else if(t<8 && t>3)
-    {
+        tf = 3;
+        circle_start = true;
+        t = 3;
+    }
+    if(t<8 && t>3)
+    { // Start real circle
+        if(circle_start){
+            circle_start = false;
+            ack_packet[2] = 3;
+            ack_packet[3] = 7;
+            ack_packet[4] = 0;
+            applyCheckSum(ack_packet, 6);
+            sendUART(6, ack_packet, 0);
+        }
         c1 = 0;
         c2 = 0;
         c3 = -0.17699;
@@ -296,7 +306,7 @@ void circularMotion(int nf){
         gramma = 0;
         ti = 3;
         x0 = 140;
-        y0 = 250;
+        y0 = 150;
         path_mode = 1;
         tf = 8;  
     } 
@@ -310,7 +320,7 @@ void circularMotion(int nf){
         phi = 0;
         r = 130;
         x0 = 140;
-        y0 = 250;
+        y0 = 150;
         path_mode = 1;
         gramma = 0;
         tf = (tf1*n)+8; 
@@ -327,12 +337,18 @@ void circularMotion(int nf){
         phi = 0;
         gramma = 0;
         x0 = 140;
-        y0 = 250;
+        y0 = 150;
         path_mode = 1;
         tf = (tf1*n)+8;
     }
     else if(t > (tf1*n)+8 && n > nf && t > 8){
         circle_running = false;
+        ack_packet[2] = 3;
+        ack_packet[3] = 7;
+        ack_packet[4] = 1;
+        applyCheckSum(ack_packet, 6);
+        sendUART(6, ack_packet, 0);
+        n = 1;
     }
     if((t > (tf1*n)+8) && n <= nf)
     {
@@ -613,7 +629,7 @@ void applyCheckSum(uint8_t *buffer, int length){
     for(i=2;i<length-1;i++){
         checksum += buffer[i];
     }
-    buffer[sizeof(buffer)-1] = ~checksum;
+    buffer[length-1] = ~checksum;
 }
 void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to the left N times
     int i, j;
@@ -642,7 +658,8 @@ void sendUART(int length, uint8_t *buffer, int startIndex)
 {
     DMA0CNT = length - 1; // Length
     int i;
-    for(i=0;i<length;i++){
+    BufferA[0] = 255; BufferA[1] = 255;
+    for(i=2;i<length;i++){
         BufferA[i] = buffer[i + startIndex];
     }
     // Send !!!
@@ -696,11 +713,11 @@ void __attribute__((interrupt,no_auto_psv)) _T1Interrupt(void)
     else{
         if(trajectory_running == true){
 //            ack_packet = {255, 255, 3, 4, 1, 0};
-//            ack_packet[2] = 3;
-//            ack_packet[3] = 4;
-//            ack_packet[4] = 1;
-//            applyCheckSum(ack_packet, 6);
-//            sendUART(6, ack_packet, 0);
+            ack_packet[2] = 3;
+            ack_packet[3] = 4;
+            ack_packet[4] = 1;
+            applyCheckSum(ack_packet, 6);
+            sendUART(6, ack_packet, 0);
             trajectory_running = false;
         }
     }

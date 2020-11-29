@@ -22,6 +22,7 @@ codec = 0x47504A4D  # MJPG
 cap.set(cv2.CAP_PROP_FPS, 30.0)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 cap.set(3, 1920)
 cap.set(4, 1080)
 
