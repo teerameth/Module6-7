@@ -1,14 +1,15 @@
 #include "BluetoothSerial.h"
 #include <ArduinoOTA.h>
 #include <ESP32Servo.h>
+#include <AccelStepper.h>
 #define STEP_PER_ROUND 400
 #define B_zero (int)(STEP_PER_ROUND/2)
 #define motorInterfaceType 1
 BluetoothSerial SerialBT;
 hw_timer_t * timer = NULL;
 // Note: 200cycles : 5mm.
-const int dirPinA = 25; // 26 for old board
-const int stepPinA = 26; // 25 for old board
+const int dirPinA = 26; // 26 for old board
+const int stepPinA = 25; // 25 for old board
 const int dirPinB = 32;
 const int stepPinB = 33;
 //const int proximityPin = 27; // Active LOW
@@ -19,6 +20,7 @@ bool led_state = false;
 int gripper_pos = 0;
 int stepAPos = 0, stepBPos = B_zero, stepADes = 0, stepBDes = 0;
 Servo gripper_servo;
+AccelStepper Zaxis(1, stepPinA, dirPinA); // pin 5 = step, pin 8 = direction
 
 volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
 double c1 = 0,c2 = 0,c3,c4,gramma;
@@ -39,33 +41,17 @@ void IRAM_ATTR onStepper(){
   reportCnt++;
   if(tA_left > 1)tA_left--; // Time counter in ms.
   if(tB_left > 1)tB_left--;
-//  deltaA = stepADes - stepAPos; // For linear volocity (Trajectory don't need this)
-//  if(deltaA){
-//    t_stepA = tA_left/abs(deltaA); // Calculate linear velocity
   if(t<tf){
     theta_t = (((c4*t)+c3)*t+c2)*t+c1;
     theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
     setpoint_z = (theta_t)*sin(gramma);
     vel_z = (theta_dot_t)*sin(gramma);
-//    if(vel_z != 0){
-//          t_stepA = abs(28/vel_z);// Period in ms./step (for speed control)
-//    }
+    Zaxis.setSpeed(vel_z*250/7);
     t_stepACnt++;
   }
-
-  delta = ((int)(setpoint_z*500.0/14.0)) - stepAPos;
-  if(t_stepACnt > t_stepA){
-    t_stepACnt -= t_stepA;
-    if(delta > 0){
-      digitalWrite(dirPinA, LOW);
-      stepAPos++;
-    }
-    else{
-      digitalWrite(dirPinA, HIGH);
-      stepAPos--;
-    }
-    digitalWrite(stepPinA, HIGH);
-    digitalWrite(stepPinA, LOW);
+  else if(mystepper.currentPosition() != StepADes)
+  {
+    Zaxis.setSpeed(StepDes - mystepper.currentPosition()); 
   }
   deltaB = stepBDes - stepBPos;
   if(deltaB){
@@ -80,22 +66,9 @@ void IRAM_ATTR onStepper(){
     digitalWrite(stepPinB, HIGH);
     digitalWrite(stepPinB, LOW);
   }
+  Zaxis.runSpeed();
   t += 0.001;
 }
-//void IRAM_ATTR onControl(){
-//   if(t<tf){
-//    theta_t = (((c4*t)+c3)*t+c2)*t+c1;
-//    theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
-//    setpoint_z = (theta_t)*sin(gramma);
-////    vel_z = (theta_dot_t)*sin(gramma);
-////    if(vel_z != 0){
-////          t_stepA = abs(28/vel_z);// Period in ms./step (for speed control)
-////    }
-//    t_stepACnt++;
-//  }
-//  delta = ((int)(setpoint_z*500.0/14.0)) - stepAPos;
-//  t += 0.02;
-//}
 
 void setup() {
   ack_packet[0] = 255;
@@ -113,6 +86,7 @@ void setup() {
   timerAttachInterrupt(timer, &onStepper, true);
   timerAlarmWrite(timer, 1000, true); // call every 1000 ticks (1ms.)
   timerAlarmEnable(timer);
+  Zaxis.setMaxSpeed(1000);
 
 //  timer2 = timerBegin(1, 80, true); // timer 0, divider 80, count up
 //  timerAttachInterrupt(timer2, &onControl, true);
@@ -262,6 +236,7 @@ void setZero() {
   while (digitalRead(limitSwitchPin) == 0) {
     digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(2000);
   }
+  stepper.setCurrentPosition(400*250/7);
   // Reset remembered position
   stepAPos = 0;
   stepBPos = B_zero;
