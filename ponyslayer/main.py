@@ -184,7 +184,7 @@ class Robot():
     def close(self):
         self.closeXY()
         self.closeZ()
-robot = Robot("COM8", 115200, "COM12", 115200)
+robot = Robot("COM8", 115200, "COM6", 115200)
 def send(packet):
     out_string = ""
     for item in packet:

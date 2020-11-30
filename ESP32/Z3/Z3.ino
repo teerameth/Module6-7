@@ -46,12 +46,7 @@ void IRAM_ATTR onStepper(){
     theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
     setpoint_z = (theta_t)*sin(gramma);
     vel_z = (theta_dot_t)*sin(gramma);
-    Zaxis.setSpeed(vel_z*250/7);
-    t_stepACnt++;
-  }
-  else if(mystepper.currentPosition() != StepADes)
-  {
-    Zaxis.setSpeed(StepDes - mystepper.currentPosition()); 
+    //t_stepACnt++;
   }
   deltaB = stepBDes - stepBPos;
   if(deltaB){
@@ -66,6 +61,7 @@ void IRAM_ATTR onStepper(){
     digitalWrite(stepPinB, HIGH);
     digitalWrite(stepPinB, LOW);
   }
+  Zaxis.setSpeed( vel_z*250/6);
   Zaxis.runSpeed();
   t += 0.001;
 }
@@ -203,7 +199,6 @@ void loop() {
                             c3 = ((stack[startIndex+4]==0)?1.0:-1.0)*(((float)stack[startIndex+5])+((float)stack[startIndex+6])/100+((float)stack[startIndex+7])/10000);
                             c4 = ((stack[startIndex+8]==0)?1.0:-1.0)*(((float)stack[startIndex+9])+((float)stack[startIndex+10])/100+((float)stack[startIndex+11])/10000);
                             gramma = ((stack[startIndex+12]==0)?1.0:-1.0)*(((float)stack[startIndex+13])+((float)stack[startIndex+14])/100+((float)stack[startIndex+15])/10000);
-                            tA_left = ((float)stack[startIndex+16]) + ((float)stack[startIndex+17])/100 + ((float)stack[startIndex+18])/10000;
                             tf = ((float)stack[startIndex+16]) + ((float)stack[startIndex+17])/100 + ((float)stack[startIndex+18])/10000;
                             t = 0;
                             break;
@@ -232,11 +227,11 @@ void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to t
     }
 }
 void setZero() {
-  digitalWrite(dirPinA, HIGH); // DOWN
+  digitalWrite(dirPinA, LOW); // up
   while (digitalRead(limitSwitchPin) == 0) {
-    digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(2000);
+    digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(1000);
   }
-  stepper.setCurrentPosition(400*250/7);
+  //Zaxis.setCurrentPosition(400*250/7);
   // Reset remembered position
   stepAPos = 0;
   stepBPos = B_zero;
