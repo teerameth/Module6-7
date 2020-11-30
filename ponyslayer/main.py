@@ -13,9 +13,9 @@ state_name = ['setting', 'captureTemplate', 'captureWorkspace', 'reconstruction'
 USE_CUDA, AUTO_RUN, CIRCULAR_ROUND = True, True, 2
 cap = Camera()
 run, state, previous_state = 1, 1, 1
-event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'homeXY':0, 'circular_running':0}
-robot_event = {'homingXY':0, 'homedXY':0, 'homingZ':0, 'homedZ':0, 'trajectoryXY_running':0, 'trajectoryXY_arrived':0, 'readedXY':0}
-captured_image = {'template_raw':None, 'template':None, 'reconstructed':None}
+event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'home':0, 'homeXY':0, 'homeZ':0, 'circular_running':0}
+robot_event = {'homing':0, 'homingXY':0, 'homedXY':0, 'homingZ':0, 'homedZ':0, 'trajectoryXY_running':0, 'trajectoryXY_arrived':0, 'readedXY':0}
+captured_image = {'warped':None, 'template_raw':None, 'template':None, 'reconstructed':None}
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 fourcc1 = cv2.VideoWriter_fourcc(*'XVID')
 def apply_checksum(l):
@@ -54,7 +54,7 @@ class Robot():
         self.serialDevice.write(packet)
         time.sleep(0.1)
     def set_homeZ(self):
-        self.Z = 0
+        self.Z = 400
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
         self.esp.write(packet)
@@ -109,6 +109,28 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         print("PIC: " + str(packet))
+    def writeTrajectoryZ(self, t, z1, a1):
+        ## A ##
+        packet = [0xFF, 0xFF, 7, 0x03, 0x01, int(a1 / 256), int(a1 % 256), int(t * 1000 / 256), int(t * 1000) % 256]
+        apply_checksum(packet)
+        self.esp.write(packet)
+        x0, y0, x1, y1 = 0, 0, 0, 0
+        z0 = self.Z
+        c3, c4, theta, gramma = self.tj_solve(t, x1, y1, z1, x0, y0, z0)
+        c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
+        c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
+        theta_packet = [0 if theta > 0 else 1, int(abs(theta)) % 256, int((abs(theta) * 100) % 100),
+                        int((abs(theta) * 10000) % 100)]
+        gramma_packet = [0 if gramma > 0 else 1, int(abs(gramma)) % 256, int((abs(gramma) * 100) % 100),
+                         int((abs(gramma) * 10000) % 100)]
+        t_packet = [int(t) % 256, int((t * 100) % 100), int((t * 10000) % 100)]
+        ## Z ## {255, 255, 16, 4, c3_0, c3_1, c3_2, c3_3, c4_0, c4_1, c4_2, c4_3, gamma_0, gamma_1, gamma_2, gamma_3, t_1, t_2, t_3, checkSum} // t = time in ms.
+        packet = [0xFF, 0xFF, 17, 0x04] + c3_packet + c4_packet + gramma_packet + t_packet
+        apply_checksum(packet)
+        self.esp.write(packet)
+        print("ESP_Z: " + str(packet))
+        self.Z = z1
+        time.sleep(0.02)
     def writeTrajectory(self, t, x1, y1, z1, a1):  # Ack {255, 255, 3, 4, 1, 0} every move
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + "Y0=" + str(y0))
@@ -198,9 +220,10 @@ def loading(status):
     if status == 1: send([3, 1, 1])
 
 packets = []
+packets_esp = []
 def robot_reciever():
     while True:
-        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting())  # [0xFF, 0xFF, 5, 0x01, checksum]
+        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # PIC
         if responsePacket:
             packet = list(responsePacket)
             packets.append(packet)
@@ -222,6 +245,14 @@ def robot_reciever():
                 packets.pop(-1)
             print(packets)
             print("Recieved: " + str(packet))
+
+        responsePacket = robot.esp.read(robot.esp.inWaiting()) # ESP32
+        if responsePacket:
+            packet = list(responsePacket)
+            packets_esp.append(packet)
+            if packet[2] == 3 and packet[3] == 5 and packet[4] == 1:
+                robot_event['homedZ'] = 1
+                send([3, 1, 2])  # Deactivate Load Animation
         time.sleep(0.2)
         # HOME          [0xFF, 0xFF, 3, 5, 0x01, checksum]
         # TRAJECTORY    [0xFF, 0xFF, 3, 4, 0x01, checksum]
@@ -265,7 +296,10 @@ def recieving():
                     send([3, 1, 3]) # Activate Load Animation
                     robot.set_homeZ()
                     robot.set_homeXY()
+                    event['home'] = 1
                     event['homeXY'] = 1
+                    event['homeZ'] = 1
+                    robot_event['homing'] = 1
                 if data[2] == 1: # Home XY
                     send([3, 1, 3]) # Activate Load Animation
                     if event['connectXY'] == 0: print('Not Connected')
@@ -275,13 +309,18 @@ def recieving():
                 if data[2] == 2: # Home Z
                     send([3, 1, 3]) # Activate Load Animation
                     robot.set_homeZ()
-                    send([3, 1, 2]) # Deactivate Load Animation
                 if data[2] == 3: # Center XY
                     send([3, 1, 3])  # Activate Load Animation
                     if event['homeXY'] == 0:
                         event['homeXY'] = 1
                         robot.set_homeXY()
                     robot.writeTrajectoryXY(5, 200, 200)
+            if data[1] == 4: # WriteTrajectory {3, 4, x_high, x_low, y_high, y_low, z_high, z_low, a_high, a_low}
+                x_pos = data[2]*256 + data[3]
+                y_pos = data[4]*256 + data[5]
+                z_pos = data[6]*256 + data[7]
+                a_pos = data[8]*256 + data[9]
+                robot.writeTrajectory(5, x_pos, y_pos, z_pos, a_pos)
 
 
 
@@ -295,13 +334,17 @@ def mainThread():
     while True:
         ### Do State ###
         if state == 0: # Setting
-            pass
+            if captured_image['warped'] is not None:
+                cast.send('2', captured_image['warped'])
         if state == 1: # Capture Template
             frame = cap.read()
             cast.send('1', imutils.resize(frame, height=720))
             if event['capture']:
                 event['capture'] = 0 # Clear flag
                 captured_image['template_raw'] = frame
+                aruco = aruco_crop(frame)
+                if aruco != 0:  # if workspace avaliable
+                    captured_image['warped'] = aruco[0]
                 cv2.imshow("Template_RAW", captured_image['template_raw'])
                 cv2.waitKey(1)
         if state == 2: # Capture Workspace

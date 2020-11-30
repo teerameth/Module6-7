@@ -16,10 +16,10 @@
 #define CON_T 0.002
 float prev_pos_x;
 float prev_pos_y;
-float pwm_x, kp_x = 0.50, ki_x = 0.0, kd_x = 2.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
-float pwm_vel_x, kp_vel_x = 0.8, ki_vel_x = 0.012, kd_vel_x = 2.5, prev_err_vel_x, setpoint_vel_x, i_term_vel_x, d_term_vel_x, feedback_vel_x, new_error_vel_x, vel_x=0;
-float pwm_y, kp_y = 0.50, ki_y = 0.0, kd_y = 2.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
-float pwm_vel_y, kp_vel_y = 0.80, ki_vel_y = 0.01, kd_vel_y = 2.0, prev_err_vel_y, setpoint_vel_y, i_term_vel_y, d_term_vel_y, feedback_vel_y, new_error_vel_y, vel_y=0;
+float pwm_x, kp_x = 1.8, ki_x = 0.0, kd_x = 3.0, prev_err_x, setpoint_x, i_term_x, d_term_x, feedback_x, new_error_x;
+float pwm_vel_x, kp_vel_x =1.5, ki_vel_x = 0.035, kd_vel_x = 5.5, prev_err_vel_x, setpoint_vel_x, i_term_vel_x, d_term_vel_x, feedback_vel_x, new_error_vel_x, vel_x=0;
+float pwm_y, kp_y = 1.8, ki_y = 0.0, kd_y = 3.0, prev_err_y, setpoint_y, i_term_y, d_term_y, feedback_y, new_error_y;
+float pwm_vel_y, kp_vel_y = 1.50, ki_vel_y = 0.035, kd_vel_y = 5.5, prev_err_vel_y, setpoint_vel_y, i_term_vel_y, d_term_vel_y, feedback_vel_y, new_error_vel_y, vel_y=0;
 float sigma_a_x =8; // adjustable
 float sigma_w_x =1.50; // adjustable
 

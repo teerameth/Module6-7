@@ -31,7 +31,7 @@ int deltaA, deltaB;
 uint8_t stack[40], ack_packet[20];
 uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum;
 char byte_in;
-
+bool homing = false;
 void setZero();
 void shift_buffer(int n, uint8_t *buffer, int buffer_size);
 void applyCheckSum(uint8_t *buffer, int length);
@@ -48,6 +48,9 @@ void IRAM_ATTR onStepper(){
     vel_z = (theta_dot_t)*sin(gramma);
     //t_stepACnt++;
   }
+  else{
+    Zaxis.moveTo((long)(setpoint_z*250/7));
+  }
   deltaB = stepBDes - stepBPos;
   if(deltaB){
     if(deltaB > 0){
@@ -61,8 +64,8 @@ void IRAM_ATTR onStepper(){
     digitalWrite(stepPinB, HIGH);
     digitalWrite(stepPinB, LOW);
   }
-  Zaxis.setSpeed( vel_z*250/6);
-  Zaxis.runSpeed();
+  Zaxis.setSpeed( -vel_z*250/6);
+  if(!homing)Zaxis.runSpeed();
   t += 0.001;
 }
 
@@ -204,7 +207,9 @@ void loop() {
                             break;
                         case 5: // Home {255, 255, 3, 5, 0, checksum}
                             Serial.printf("Set Home\n");
+                            homing = true;
                             setZero();
+                            homing = false;
                             break;
                         case 6: // Gripper servo {255, 255, 3, 6, servoPos, checksum}
                             gripper_servo.write(stack[startIndex+4]);
@@ -238,6 +243,11 @@ void setZero() {
   stepADes = 0;
   stepBDes = B_zero;
   Serial.printf("Homed!\n");
+  ack_packet[2] = 3;
+  ack_packet[3] = 5;
+  ack_packet[4] = 1;
+  ack_packet[5] = 246; // checksum
+  SerialBT.write(ack_packet, 6);
 }
 void applyCheckSum(uint8_t *buffer, int length){
     int i;
