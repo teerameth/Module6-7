@@ -4,8 +4,10 @@ import argparse
 import imutils
 import numpy as np
 
-warped_list = np.load("X:/warped.npy", mmap_mode='r')
-valid_mask_list = np.load("X:/mask.npy", mmap_mode='r')
+# warped_list = np.load("X:/warped.npy", mmap_mode='r')
+# valid_mask_list = np.load("X:/mask.npy", mmap_mode='r')
+warped_list = np.load("C:/Users/teera/Downloads/warped.npy", mmap_mode='r')
+valid_mask_list = np.load("C:/Users/teera/Downloads/mask.npy", mmap_mode='r')
 
 # for i in range(len(warped_list)):
 #     warped, valid_mask = warped_list[i], valid_mask_list[i]
@@ -49,9 +51,13 @@ cv2.waitKey(0)
 circular_round = 3
 N = 3
 step_round = int(len(warped_list)/N/circular_round)
-for i in range(N):
-    img_list = []
-    for j in range(circular_round):
-        img_list.append(warped_list[int(j*step_round + i*step_round/N)])
-    cv2.imshow("Preview", np.hstack(img_list))
+for i in range(circular_round):
+    index = []
+    for j in range(N): index.append(int(i*step_round + j*step_round/N))
+    rail_mask = imutils.resize(np.hstack(apply_three(warped_list[index[0]], valid_mask_list[index[0]],
+                                                     warped_list[index[1]], valid_mask_list[index[1]],
+                                                     warped_list[index[2]], valid_mask_list[index[2]])), width=1920)
+    original = imutils.resize(np.hstack([warped_list[0], warped_list[1], warped_list[2]]), width=1920)
+    cv2.imshow("A", original)
+    cv2.imshow("B", rail_mask)
     cv2.waitKey(0)
