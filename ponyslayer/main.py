@@ -1,6 +1,7 @@
 import cv2, numpy, time, os, threading, socket, imutils, serial, math
 from unicorn2 import *
 from transform import *
+import numpy as np
 backlog = 1
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('127.0.0.1', 12345))
@@ -94,10 +95,10 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
         print(packet)
-    def writeTrajectoryXY(self, t, x1, y1):
+    def writeTrajectoryXY(self, x1, y1):
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + ", Y0=" + str(y0))
-        c3, c4, theta, gramma = self.tj_solve(t, x1, y1, 0, x0, y0, 0)
+        c3, c4, theta, gramma, t = self.tj_solve(t, x1, y1, 0, x0, y0, 0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
         theta_packet = [0 if theta > 0 else 1, int(abs(theta)) % 256, int((abs(theta) * 100) % 100),
@@ -109,14 +110,14 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         print("PIC: " + str(packet))
-    def writeTrajectoryZ(self, t, z1, a1):
+    def writeTrajectoryZ(self, z1, a1):
         ## A ##
         packet = [0xFF, 0xFF, 7, 0x03, 0x01, int(a1 / 256), int(a1 % 256), int(t * 1000 / 256), int(t * 1000) % 256]
         apply_checksum(packet)
         self.esp.write(packet)
         x0, y0, x1, y1 = 0, 0, 0, 0
         z0 = self.Z
-        c3, c4, theta, gramma = self.tj_solve(t, x1, y1, z1, x0, y0, z0)
+        c3, c4, theta, gramma, t = self.tj_solve(x1, y1, z1, x0, y0, z0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
         theta_packet = [0 if theta > 0 else 1, int(abs(theta)) % 256, int((abs(theta) * 100) % 100),
@@ -131,12 +132,12 @@ class Robot():
         print("ESP_Z: " + str(packet))
         self.Z = z1
         time.sleep(0.02)
-    def writeTrajectory(self, t, x1, y1, z1, a1):  # Ack {255, 255, 3, 4, 1, 0} every move
+    def writeTrajectory(self, x1, y1, z1, a1):  # Ack {255, 255, 3, 4, 1, 0} every move
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + "Y0=" + str(y0))
         z0 = self.Z
         self.Z = z1
-        c3, c4, theta, gramma = self.tj_solve(t, x1, y1, z1, x0, y0, z0)
+        c3, c4, theta, gramma, t = self.tj_solve(x1, y1, z1, x0, y0, z0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
         theta_packet = [0 if theta > 0 else 1, int(abs(theta)) % 256, int((abs(theta) * 100) % 100),
@@ -187,18 +188,68 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         count = 0
-    def tj_solve(self, t, x1, y1, z1, x0, y0, z0):
-        # print(t, x1, y1, z1, x0, y0, z0)
-        qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
-        A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
-        B = np.array([[qf], [0]])
-        X = np.dot(np.linalg.inv(A), B)
-        theta = math.atan2((y1 - y0), (x1 - x0))
-        gramma = math.atan2(z1 - z0, math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
-        c3 = X[0][0]
-        c4 = X[1][0]
-        # print("c3 = " + str(c3) + "\nc4 = " + str(c4) + "\ntheta = " + str(theta) + "\ngramma = " + str(gramma))
-        return c3, c4, theta, gramma
+    def tj_solve(self, x1, y1, z1, x0, y0, z0):
+        vel_x_max = 150
+        vel_y_max = 150
+        vel_z_max = 1000 * 7 / 250
+        vel_x = 200
+        vel_y = 200
+        vel_z = 100
+        t = 0.002
+        c1 = 0
+        c2 = 0
+        c3 = 0
+        c4 = 0
+        theta = 0
+        gramma = 0
+        while abs(vel_x) > vel_x_max or abs(vel_y) > vel_y_max or abs(vel_z) > vel_z_max:
+            qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
+            A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
+            B = np.array([[qf], [0]])
+            X = np.dot(np.linalg.inv(A), B)
+            c3 = X[0][0]
+            c4 = X[1][0]
+            theta = math.atan2((y1 - y0), (x1 - x0))
+            gramma = math.atan2(z1 - z0, math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
+
+            theta_t = c1 + c2 * (t / 2) + c3 * (t / 2) * (t / 2) + c4 * (t / 2) * (t / 2) * (t / 2)
+            theta_dot_t = c2 + 2 * c3 * (t / 2) + 3 * c4 * (t / 2) * (t / 2)
+            vel_x = (theta_dot_t) * math.cos(gramma) * math.cos(theta)
+            vel_y = (theta_dot_t) * math.cos(gramma) * math.sin(theta)
+            vel_z = (theta_dot_t) * math.sin(gramma)
+            t = t + 0.002
+        print("c3 = : ", c3)
+        print("c4 = : ", c4)
+        print("theta = : ", theta)
+        print("gamma = : ", gramma)
+        print("vel X = : ", vel_x)
+        print("t = : ", t)
+        return c3, c4, theta, gramma, t
+
+    # def tj_solve(self, t, x1, y1, z1, x0, y0, z0):
+    #     # print(t, x1, y1, z1, x0, y0, z0)
+    #     qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
+    #     A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
+    #     B = np.array([[qf], [0]])
+    #     X = np.dot(np.linalg.inv(A), B)
+    #     theta = math.atan2((y1 - y0), (x1 - x0))
+    #     gramma = math.atan2(z1 - z0, math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
+    #     c3 = X[0][0]
+    #     c4 = X[1][0]
+    #     # print("c3 = " + str(c3) + "\nc4 = " + str(c4) + "\ntheta = " + str(theta) + "\ngramma = " + str(gramma))
+    #     return c3, c4, theta, gramma
+    # def tj_solve(self, t, x1, y1, z1, x0, y0, z0):
+    #     # print(t, x1, y1, z1, x0, y0, z0)
+    #     qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
+    #     A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
+    #     B = np.array([[qf], [0]])
+    #     X = np.dot(np.linalg.inv(A), B)
+    #     theta = math.atan2((y1 - y0), (x1 - x0))
+    #     gramma = math.atan2(z1 - z0, math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
+    #     c3 = X[0][0]
+    #     c4 = X[1][0]
+    #     # print("c3 = " + str(c3) + "\nc4 = " + str(c4) + "\ntheta = " + str(theta) + "\ngramma = " + str(gramma))
+    #     return c3, c4, theta, gramma
     def closeXY(self):
         self.serialDevice.close()
     def closeZ(self):
@@ -295,7 +346,9 @@ def recieving():
                 if data[2] == 0: # Home All
                     send([3, 1, 3]) # Activate Load Animation
                     robot.set_homeZ()
-                    robot.set_homeXY()
+                    # robot.set_homeXY()
+                    if event['homeXY'] == 0: robot.set_homeXY()
+                    else: robot.writeTrajectoryXY(10, 10)
                     event['home'] = 1
                     event['homeXY'] = 1
                     event['homeZ'] = 1
@@ -304,7 +357,7 @@ def recieving():
                     send([3, 1, 3]) # Activate Load Animation
                     if event['connectXY'] == 0: print('Not Connected')
                     if event['homeXY'] == 0: robot.set_homeXY()
-                    else: robot.writeTrajectoryXY(5, 10, 10)
+                    else: robot.writeTrajectoryXY(10, 10)
                     event['homeXY'] = 1
                 if data[2] == 2: # Home Z
                     send([3, 1, 3]) # Activate Load Animation
@@ -314,13 +367,14 @@ def recieving():
                     if event['homeXY'] == 0:
                         event['homeXY'] = 1
                         robot.set_homeXY()
-                    robot.writeTrajectoryXY(5, 200, 200)
+                    robot.writeTrajectoryXY(200, 200)
             if data[1] == 4: # WriteTrajectory {3, 4, x_high, x_low, y_high, y_low, z_high, z_low, a_high, a_low}
+                send([3, 1, 3])  # Activate Load Animation
                 x_pos = data[2]*256 + data[3]
                 y_pos = data[4]*256 + data[5]
                 z_pos = data[6]*256 + data[7]
                 a_pos = data[8]*256 + data[9]
-                robot.writeTrajectory(5, x_pos, y_pos, z_pos, a_pos)
+                robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
 
 
 

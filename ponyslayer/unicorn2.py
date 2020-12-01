@@ -13,6 +13,7 @@ class Camera():
         self.cap.set(cv2.CAP_PROP_FPS, 30.0)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m', 'j', 'p', 'g'))
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
+        self.cap.set(cv2.CAP_PROP_SETTINGS, 1)
         self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
         self.cap.set(cv2.CAP_PROP_FOCUS, 2)
         self.cap.set(3, 1920)
