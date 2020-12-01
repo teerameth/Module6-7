@@ -39,14 +39,14 @@ def apply_three(imageA, maskA, imageB, maskB, imageC, maskC):
     return A, B, C
 
 
-cv2.imshow("A", apply_pair(warped_list[0], valid_mask_list[0], warped_list[100], valid_mask_list[100]))
-cv2.waitKey(0)
-
-original = imutils.resize(np.hstack([warped_list[0], warped_list[100], warped_list[200]]), width=1920)
-rail_mask = imutils.resize(np.hstack(apply_three(warped_list[0], valid_mask_list[0], warped_list[100], valid_mask_list[100], warped_list[200], valid_mask_list[200])), width=1920)
-cv2.imshow("A", original)
-cv2.imshow("B", rail_mask)
-cv2.waitKey(0)
+# cv2.imshow("A", apply_pair(warped_list[0], valid_mask_list[0], warped_list[100], valid_mask_list[100]))
+# cv2.waitKey(0)
+#
+# original = imutils.resize(np.hstack([warped_list[0], warped_list[100], warped_list[200]]), width=1920)
+# rail_mask = imutils.resize(np.hstack(apply_three(warped_list[0], valid_mask_list[0], warped_list[100], valid_mask_list[100], warped_list[200], valid_mask_list[200])), width=1920)
+# cv2.imshow("A", original)
+# cv2.imshow("B", rail_mask)
+# cv2.waitKey(0)
 
 circular_round = 3
 N = 3
@@ -60,4 +60,4 @@ for i in range(circular_round):
     original = imutils.resize(np.hstack([warped_list[0], warped_list[1], warped_list[2]]), width=1920)
     cv2.imshow("A", original)
     cv2.imshow("B", rail_mask)
-    cv2.waitKey(0)
+    cv2.waitKey(100)
