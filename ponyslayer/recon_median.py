@@ -3,11 +3,6 @@ from skimage.measure import compare_ssim
 import numpy as np
 import random
 
-warped_list = np.load("X:/warped.npy", mmap_mode='r')
-valid_mask_list = np.load("X:/mask.npy", mmap_mode='r')
-# warped_list = np.load("C:/Users/teera/Downloads/warped.npy", mmap_mode='r')
-# valid_mask_list = np.load("C:/Users/teera/Downloads/mask.npy", mmap_mode='r')
-
 def findMedian(images): return np.asarray(np.median(np.dstack(images), axis=2), dtype=np.uint8)
 def apply_pair(imageA, maskA, imageB, maskB):
     grayA = cv2.cvtColor(imageA, cv2.COLOR_BGR2GRAY)
@@ -31,7 +26,7 @@ def apply_three(imageA, maskA, imageB, maskB, imageC, maskC):
     C = cv2.bitwise_or(cv2.bitwise_and(AB, cv2.bitwise_not(AB)),  # C = AC & !AB
                        cv2.bitwise_and(AC, cv2.bitwise_not(AB)))  # C = BC & !AB
     return [A, B, C]
-def apply_rand(imageA, maskA, pool, pool_valid, N):
+def apply_single_rand(imageA, maskA, pool, pool_valid, N):
     grayA = cv2.cvtColor(imageA, cv2.COLOR_BGR2GRAY)
     mask_list = []
     for i in range(N):
@@ -48,7 +43,6 @@ def apply_rand(imageA, maskA, pool, pool_valid, N):
         mask_list.append(mask)
     mask_med = np.asarray(np.median(np.dstack(mask_list), axis=2), dtype=np.uint8)
     return cv2.bitwise_or(cv2.bitwise_not(maskA), mask_med)
-
 def median_with_mask(images, masks):
     R, G, B = [], [] ,[]
     for img in images:
@@ -60,13 +54,13 @@ def median_with_mask(images, masks):
     image_tmp_r = np.dstack(R)
     image_tmp_g = np.dstack(G)
     image_tmp_b = np.dstack(B)
-    print(image_tmp_r.shape)
-    print(mask_tmp.shape)
+    # print(image_tmp_r.shape)
+    # print(mask_tmp.shape)
     mask = np.sum(mask_tmp, axis=2, dtype=np.uint16) # 255 is masked, 0 is unmasked (we want to count)
     mask = np.asarray(len(images) - mask/255, dtype=np.uint8)
     # cv2.imshow("A", mask)
     # cv2.waitKey(0)
-    print(mask.shape)
+    # print(mask.shape)
     r = np.sort(image_tmp_r, axis=2) # Sort stacked pixel
     r = np.dsplit(r, len(images)) # Split stacked pixel as before (but sorted)
     g = np.dsplit(np.sort(image_tmp_g, axis=2), len(images))
@@ -76,7 +70,7 @@ def median_with_mask(images, masks):
     #     cv2.imshow("A", final)
     #     cv2.waitKey(0)
     result = np.zeros_like(images[0])
-    print(result.shape)
+    # print(result.shape)
     # r = np.take(r, mask)
     # cv2.imshow("B", r)
     # cv2.waitKey(0)
@@ -87,48 +81,40 @@ def median_with_mask(images, masks):
             result[row][column][0] = r[index][row][column]
             result[row][column][1] = g[index][row][column]
             result[row][column][2] = b[index][row][column]
-    cv2.imshow("A", result)
-    cv2.waitKey(0)
+    # cv2.imshow("A", result)
+    # cv2.waitKey(0)
+    cv2.imwrite("X:/final.png", result)
     return result
 
-warpeds = []
-valids = []
-for i in range(20):
-    index = random.randrange(0, len(warped_list)/3)
-    warpeds.append(warped_list[index])
-    valids.append(valid_mask_list[index])
-median_with_mask(warpeds, valids)
+def run(N=20): # Median with valid mask
+    warped_list = np.load("X:/warped.npy", mmap_mode='r')
+    valid_mask_list = np.load("X:/mask.npy", mmap_mode='r')
+    warpeds = []
+    valids = []
+    for i in range(N):
+        index = random.randrange(0, int(len(warped_list) / 3))
+        warpeds.append(warped_list[index])
+        valids.append(valid_mask_list[index])
+    median_with_mask(warpeds, valids)
 
-# median_with_mask(warped_list[:20], valid_mask_list[:20])
+def run_rail(N=20, iteration=5): # Median with valid mask & Rail mask
+    warped_list = np.load("X:/warped.npy", mmap_mode='r')
+    valid_mask_list = np.load("X:/mask.npy", mmap_mode='r')
+    warpeds = []
+    valids = []
+    masks = []
+    for i in range(N):
+        index = random.randrange(0, int(len(warped_list) / 3))
+        warpeds.append(warped_list[index])
+        valids.append(valid_mask_list[index])
+        mask = apply_single_rand(warped_list[index], valid_mask_list[index], warped_list, valid_mask_list, iteration)
+        # mask = cv2.GaussianBlur(mask,(5,5),0)
+        # cv2.imshow("Mask", mask)
+        # cv2.imshow("Preview", warped_list[index])
+        # cv2.waitKey(1)
+        masks.append(mask)
+    median_with_mask(warpeds, masks)
 
-mask = apply_rand(warped_list[0], valid_mask_list[0], warped_list, valid_mask_list, 5)
-cv2.imwrite("X:/image1.png", warped_list[0])
-mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-cv2.imwrite("X:/mask1.png", mask_rgb)
-
-# mask = apply_pair(warped_list[0], valid_mask_list[0], warped_list[20], valid_mask_list[20])
-# cv2.imwrite("X:/image1.png", warped_list[0])
-# cv2.imwrite("X:/mask1.png", cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR))
-
-# original = imutils.resize(np.hstack([warped_list[0], warped_list[100], warped_list[200]]), width=1920)
-# rail_mask = imutils.resize(np.hstack(apply_three(warped_list[0], valid_mask_list[0], warped_list[100], valid_mask_list[100], warped_list[200], valid_mask_list[200])), width=1920)
-# cv2.imshow("A", original)
-# cv2.imshow("B", rail_mask)
-# cv2.waitKey(0)
-#
-# circular_round = 3
-# N = 3
-# step_round = int(len(warped_list)/N/circular_round)
-# for i in range(circular_round):
-#     index = []
-#     # for j in range(N): index.append(int(i*step_round + j*step_round/N))
-#     for j in range(N): index.append(int(i * step_round + j * 20))
-#     rail_masks = apply_three(warped_list[index[0]], valid_mask_list[index[0]],
-#                              warped_list[index[1]], valid_mask_list[index[1]],
-#                              warped_list[index[2]], valid_mask_list[index[2]])
-#     originals = [warped_list[index[0]], warped_list[index[0]], warped_list[index[0]]]
-#
-#     for i in range(3):
-#         mask_rgb = cv2.cvtColor(rail_masks[i], cv2.COLOR_GRAY2BGR)
-#         cv2.imwrite("X:/image" + str(i) + ".png", originals[i])
-#         cv2.imwrite("X:/mask" + str(i) + ".png", mask_rgb)
+if __name__ == "__main__":
+    run()
+    # run_rail(N=20)

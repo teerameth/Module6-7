@@ -33,7 +33,7 @@ if __name__=='__main__':
         parser.add_argument('--test_data_path',type=str ,default=" " ,help='test_data_path')
         parser.add_argument('--mask_path',type=str ,default=" " ,help='mask_path')
         parser.add_argument('--model_path',type=str ,default=" " ,help='model_path')
-        parser.add_argument('--file_out',type=str ,default="./result" ,help='result_path')
+        parser.add_argument('--file_out',type=str ,default="X:" ,help='result_path')
         parser.add_argument('--width',type=int ,default=800 ,help='images width')
         parser.add_argument('--height',type=int ,default=800 ,help='images height')
         args = parser.parse_args()
