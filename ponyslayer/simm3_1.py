@@ -61,14 +61,51 @@ def median_with_mask(images, masks):
     image_tmp_r = np.dstack(R)
     image_tmp_g = np.dstack(G)
     image_tmp_b = np.dstack(B)
-
     print(image_tmp_r.shape)
-    # print(mask_tmp.shape)
-    med = np.asarray(np.median(np.dstack(image_tmp_r), axis=1), dtype=np.uint8)
-    cv2.imshow("A", med)
+    print(mask_tmp.shape)
+    mask = np.sum(mask_tmp, axis=2, dtype=np.uint16) # 255 is masked, 0 is unmasked (we want to count)
+    mask = np.asarray(len(images) - mask/255, dtype=np.uint8)
+    cv2.imshow("A", mask)
     cv2.waitKey(0)
+    print(mask.shape)
+    r = np.sort(image_tmp_r, axis=2) # Sort stacked pixel
+    r = np.dsplit(r, len(images)) # Split stacked pixel as before (but sorted)
+    g = np.dsplit(np.sort(image_tmp_g, axis=2), len(images))
+    b = np.dsplit(np.sort(image_tmp_b, axis=2), len(images))
+    # for i in range(len(images)):
+    #     final = cv2.merge((r[i], g[i], b[i]))
+    #     cv2.imshow("A", final)
+    #     cv2.waitKey(0)
+    result = np.zeros_like(images[0])
+    print(result.shape)
+    # r = np.take(r, mask)
+    # cv2.imshow("B", r)
+    # cv2.waitKey(0)
+    for row in range(result.shape[0]):
+        for column in range(result.shape[1]):
+            index = int((mask[row][column] + len(images))/2) # Median between max, mask_count
+            if index >= len(images): index = len(images) - 1 # Pixel that never be seen will get index = len(images) and cause error indexing
+            result[row][column][0] = r[index][row][column]
+            result[row][column][1] = g[index][row][column]
+            result[row][column][2] = b[index][row][column]
+    cv2.imshow("A", result)
+    cv2.waitKey(0)
+    return result
+    # med_r = np.asarray(np.median(np.dstack(image_tmp_r), axis=1), dtype=np.uint8)
+    # med_g = np.asarray(np.median(np.dstack(image_tmp_g), axis=1), dtype=np.uint8)
+    # med_b = np.asarray(np.median(np.dstack(image_tmp_b), axis=1), dtype=np.uint8)
+    # med = cv2.merge((med_r, med_g, med_b))
+    # cv2.imshow("A", med)
+    # cv2.waitKey(0)
 
-median_with_mask(warped_list, valid_mask_list)
+warpeds = []
+valids = []
+for i in range(20):
+    index = random.randrange(0, 200)
+    warpeds.append(warped_list[index])
+    valids.append(valid_mask_list[index])
+median_with_mask(warpeds, valids)
+# median_with_mask(warped_list[:20], valid_mask_list[:20])
 
 # mask = apply_rand(warped_list[0], valid_mask_list[0], warped_list, valid_mask_list, 5)
 # cv2.imwrite("X:/image1.png", warped_list[0])
