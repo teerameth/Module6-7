@@ -2,23 +2,28 @@ import cv2, numpy, time, os, threading, socket, imutils, serial, math
 from unicorn2 import *
 from transform import *
 import numpy as np
+import BGsub, BGsub_frank, recon_median, frankenstein
 backlog = 1
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('127.0.0.1', 12345))
+# s1.bind(('127.0.0.1', 11111))
 s.listen(backlog)
+# s1.listen(backlog)
 print("Waiting for Unity")
 client, address = s.accept()
+# client1, address1 = s1.accept()
 print("Connected")
 state_name = ['setting', 'captureTemplate', 'captureWorkspace', 'reconstruction', 'segmentation', 'locateMarker', 'generatePath', 'visualize']
 ### Parameters ###
 USE_CUDA, AUTO_RUN, CIRCULAR_ROUND = True, True, 2
 cap = Camera()
 run, state, previous_state = 1, 1, 1
-event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'home':0, 'homeXY':0, 'homeZ':0, 'circular_running':0}
+event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'home':0, 'homeXY':0, 'homeZ':0, 'circular_running':0, 'recon':0, 'segment':0, 'locateMarker':0, 'generatePath':0, 'visualize':0}
 robot_event = {'homing':0, 'homingXY':0, 'homedXY':0, 'homingZ':0, 'homedZ':0, 'trajectoryXY_running':0, 'trajectoryXY_arrived':0, 'readedXY':0}
 captured_image = {'warped':None, 'template_raw':None, 'template':None, 'reconstructed':None}
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-fourcc1 = cv2.VideoWriter_fourcc(*'XVID')
+standby_image = imutils.resize(cv2.imread("bicorn.jpg"), height=800)
 def apply_checksum(l):
     checkSumOrdList = l[2:]
     checkSumOrdListSum = sum(checkSumOrdList)
@@ -98,7 +103,7 @@ class Robot():
     def writeTrajectoryXY(self, x1, y1):
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + ", Y0=" + str(y0))
-        c3, c4, theta, gramma, t = self.tj_solve(t, x1, y1, 0, x0, y0, 0)
+        c3, c4, theta, gramma, t = self.tj_solve(x1, y1, 0, x0, y0, 0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
         theta_packet = [0 if theta > 0 else 1, int(abs(theta)) % 256, int((abs(theta) * 100) % 100),
@@ -307,6 +312,9 @@ def robot_reciever():
         time.sleep(0.2)
         # HOME          [0xFF, 0xFF, 3, 5, 0x01, checksum]
         # TRAJECTORY    [0xFF, 0xFF, 3, 4, 0x01, checksum]
+###############
+###  UNITY  ###
+###############
 def recieving():
     global state, previous_state, run
     global event
@@ -375,7 +383,12 @@ def recieving():
                 z_pos = data[6]*256 + data[7]
                 a_pos = data[8]*256 + data[9]
                 robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
-
+            if data[1] == 5:  # Run Button
+                if data[2] == 3: event['recon'] = 1 # Reconstruction
+                if data[2] == 4: event['segment'] = 1 # Segmentation
+                if data[2] == 5: event['locateMarker'] = 1 # Locate Marker
+                if data[2] == 6: event['generatePath'] = 1 # Generate Path
+                if data[2] == 7: event['visualize'] = 1 # Visualize
 
 
 def mainThread():
@@ -432,17 +445,47 @@ def mainThread():
                 event['circular'] = 0 # Clear flag
                 # Z-axis up -> XY-axis home -> XY-axis circular -> Capture to RAMDisk
                 robot.circular_motion(CIRCULAR_ROUND)
-                pass
-        if state == 3: # Reconstruction
-            pass
+        if state == 3: # Reconstruction (Get X:/final.png)
+            if event['recon']: # Reconstruct button triggered
+                recon_mode = 6
+                print("Start Reconstrunction Process")
+                send([3, 1, 1])  # Activate Load Animation
+                if recon_mode == 0: # Median with valid mask
+                    recon_median.run(N=20)
+                if recon_mode == 1: # Median with valid mask & Rail mask
+                    recon_median.run_rail(N=20, iteration=5)
+                if recon_mode == 2: # Median with valid mask & Inpainting by rail mask (Using built-in OpenCV inpainting)
+                    pass
+                if recon_mode == 3: # Median with valid mask & Inpainting by rail mask (Using GAN with Tensorflow)
+                    pass
+                if recon_mode == 4: # BG-subtractor-Stochastic
+                    BGsub.run(use_random=True, visualize=True)
+                if recon_mode == 5: # BG-subtractor-Serial
+                    BGsub.run(use_random=False)
+                if recon_mode == 6: # BG-subtractor-Stochastic (Frankenstein image)
+                    frankenstein.run(N=20)
+                    BGsub_frank.run(use_random=True)
+                if recon_mode == 7: # BG-subtractor-Serial (Frankenstein image)
+                    frankenstein.run(N=20)
+                    BGsub_frank.run(use_random=False)
+                print("Reconstruction Finished!")
+                event['recon'] = 0 # Clear event flag
+                send([3, 1, 0])  # Deactivate Load Animation
+                captured_image['reconstructed'] = cv2.imread("X:/final.png")
+            if captured_image['reconstructed'] is not None: cast.send('3', captured_image['reconstructed'])
+            else: cast.send('3', standby_image)
         if state == 4: # Segmentation
-            pass
+            if captured_image['segment'] is not None: cast.send('3', captured_image['segment'])
+            else: cast.send('3', standby_image)
         if state == 5: # Locate Marker
-            pass
+            if captured_image['locateMarker'] is not None: cast.send('3', captured_image['locateMarker'])
+            else: cast.send('3', standby_image)
         if state == 6: # Generate Path
-            pass
+            if captured_image['generatePath'] is not None: cast.send('3', captured_image['generatePath'])
+            else: cast.send('3', standby_image)
         if state == 7: # Visualize
-            pass
+            if captured_image['visualize'] is not None: cast.send('3', captured_image['visualize'])
+            else: cast.send('3', standby_image)
 
 if __name__ == "__main__":
     t1 = threading.Thread(target=mainThread, name='t1')   # creating threads
@@ -454,4 +497,3 @@ if __name__ == "__main__":
             t3 = threading.Thread(target=robot_reciever, name='t3')
             t3.start()
             break
-

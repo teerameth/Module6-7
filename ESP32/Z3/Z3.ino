@@ -14,7 +14,7 @@ const int dirPinB = 32;
 const int stepPinB = 33;
 //const int proximityPin = 27; // Active LOW
 const int gripperServoPin = 14;
-const int limitSwitchPin = 12; // Homing switch
+const int limitSwitchPin = 13; // Homing switch
 float pulseDelay; // 1000 for 28byj-48, 500 for NEMA-17
 bool led_state = false;
 int gripper_pos = 0;
@@ -48,9 +48,9 @@ void IRAM_ATTR onStepper(){
     vel_z = (theta_dot_t)*sin(gramma);
     //t_stepACnt++;
   }
-  else{
-    Zaxis.moveTo((long)(setpoint_z*250/7));
-  }
+//  else{
+//    Zaxis.moveTo((long)(setpoint_z*250/7));
+//  }
   deltaB = stepBDes - stepBPos;
   if(deltaB){
     if(deltaB > 0){
@@ -64,7 +64,7 @@ void IRAM_ATTR onStepper(){
     digitalWrite(stepPinB, HIGH);
     digitalWrite(stepPinB, LOW);
   }
-  Zaxis.setSpeed( -vel_z*250/6);
+  Zaxis.setSpeed( -vel_z*260/6);
   if(!homing)Zaxis.runSpeed();
   t += 0.001;
 }
@@ -100,7 +100,7 @@ void loop() {
     reportCnt = 0;
     digitalWrite(2, led_state);
     led_state = !led_state;
-    Serial.printf("delta %d\t:\t%f\n", delta,setpoint_z);
+//    Serial.printf("delta %d\t:\t%f\n", delta,setpoint_z);
 //    Serial.printf("tA_left: %d, tB_left: %d\n", tA_left, tB_left);
 //    Serial.printf("Vel_Z = %f, t = %f, tf=%f\n", vel_z, t, tf);
   }
