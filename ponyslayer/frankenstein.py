@@ -22,8 +22,8 @@ def run(N=20):
             area = np.sum(mask == 255)
         # print(int(area/num_pixel*100))
         frank_list.append(image)
-        cv2.imshow("A", image)
-        cv2.waitKey(1)
+        # cv2.imshow("A", image)
+        # cv2.waitKey(1)
     np.save("X:/frank", frank_list)
 if __name__ == "__main__":
     run(N=200)
