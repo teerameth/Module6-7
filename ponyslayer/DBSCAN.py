@@ -6,7 +6,7 @@ import cv2
 import random
 import imutils
 
-def cluster(frame, visualize = False, esp_value=0.4, min_samples=500, N=1000, scale = 4):
+def cluster(frame, visualize = False, esp_value=0.7, min_samples=500, N=1000, scale = 2):
     original_height = frame.shape[0]
     if scale != 1: frame = imutils.resize(frame, height=int(original_height/scale))
     HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -47,12 +47,11 @@ def cluster(frame, visualize = False, esp_value=0.4, min_samples=500, N=1000, sc
 
         # Visualize
         if visualize:
-            canvas = np.zeros((800, 800, 3))
-            for i in range(N):
-                if labels[i] == -1: cv2.circle(canvas, index_list[i], 2, (0, 0, 255), -1)
-                if labels[i] == 0:
-                    cv2.circle(canvas, index_list[i], 2, (0, 255, 0), -1)
-                else: cv2.circle(canvas, index_list[i], 2, (255, 0, 0), -1)
+            canvas = np.zeros((H.shape[0], H.shape[1], 3))
+            for i in range(len(index_list_base)):
+                if labels[i+H.shape[0]] == -1: cv2.circle(canvas, index_list_base[i], 2, (0, 0, 255), -1)
+                if labels[i+H.shape[0]] == 0: cv2.circle(canvas, index_list_base[i], 2, (0, 255, 0), -1)
+                else: cv2.circle(canvas, index_list_base[i], 2, (255, 0, 0), -1)
             cv2.imshow("A", canvas)
             cv2.imshow("B", mask)
             cv2.waitKey(1)
@@ -84,25 +83,22 @@ def cluster(frame, visualize = False, esp_value=0.4, min_samples=500, N=1000, sc
     #                  markeredgecolor='k', markersize=6)
     #     plt.title('Estimated number of clusters: %d' % n_clusters_)
     #     plt.show()
+    border_mask = np.ones_like(mask)*255
+    ratio = 0.05
+    cv2.rectangle(border_mask, (int(H.shape[0]*ratio), int(H.shape[1]*ratio)), (int(H.shape[0]*(1-ratio)), int(H.shape[0]*(1-ratio))), 0, -1)
+    mask = cv2.bitwise_or(mask, border_mask)
     if scale !=1 : mask = imutils.resize(mask, height=original_height)
+    mask = np.asarray(mask, dtype=np.uint8)
     return mask
 
 if __name__ == "__main__":
     import time
-    path = "X:/final/"
-    file_names = ["BGsub Serial Frank.png", "Median with valid mask.png", "BGsub Serial.png", "BGsub Stochastic Frank.png", "BGsub Stochastic.png"]
-    for N_value in np.arange(500, 2000, 500):
-        for esp_value in np.arange(0.1, 1.0, 0.1):
-            for file_name in file_names:
-                file_path = path + file_name
-                frame = cv2.imread(file_path)
-                start = time.time()
-                mask = cluster(frame, esp_value=0.7,  scale=2, N=N_value)
-                t = str(int(time.time()-start))
-                print("Time usage: " + t + "sec.")
-                cv2.imwrite(path + "mask/" + file_name[:-4] +
-                            "_esp_" + str(esp_value)[:4].replace('.', '_') +
-                            "_time_" + t +
-                            "_N_" + str(N_value) + ".png", mask)
-                cv2.imshow("Mask", mask)
-                cv2.waitKey(1)
+    frame = cv2.imread("X:/final/BGsub Stochastic Frank.png")
+    frame = cv2.imread("../img/Real7.png")
+    start = time.time()
+    mask = cluster(frame, esp_value=0.7,  scale=2, N=1000, visualize=True)
+    t = str(int(time.time()-start))
+    print("Time usage: " + t + "sec.")
+    cv2.imshow("Mask", mask)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()

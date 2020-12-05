@@ -1,8 +1,9 @@
 import cv2, numpy, time, os, threading, socket, imutils, serial, math
 from unicorn2 import *
 from transform import *
+import bicorn
 import numpy as np
-import BGsub, BGsub_frank, recon_median, frankenstein
+import BGsub, BGsub_frank, recon_median, frankenstein, DBSCAN, search_chess, search_marker
 backlog = 1
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('127.0.0.1', 12345))
@@ -17,7 +18,8 @@ cap = Camera()
 run, state, previous_state = 1, 1, 1
 event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'home':0, 'homeXY':0, 'homeZ':0, 'circular_running':0, 'recon':0, 'segment':0, 'locateMarker':0, 'generatePath':0, 'visualize':0}
 robot_event = {'homing':0, 'homingXY':0, 'homedXY':0, 'homingZ':0, 'homedZ':0, 'trajectoryXY_running':0, 'trajectoryXY_arrived':0, 'readedXY':0}
-captured_image = {'warped':None, 'template_raw':None, 'template':None, 'reconstructed':None, 'segment':None, 'locateMarker':None, 'generatePath': None, 'visualize': None}
+captured_image = {'warped':None, 'template_raw':None, 'template':None, 'reconstructed':None, 'segment':None, 'locateMarker':None, 'generatePath': None, 'visualize': None, 'chessMask': None, 'startMask':None}
+chess_center, start_center = None, None
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 standby_image = imutils.resize(cv2.imread("bicorn.jpg"), height=800)
 use_standby = True
@@ -57,14 +59,18 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         time.sleep(0.1)
+        self.x, self.y = 0, 0
     def set_homeZ(self):
         self.Z = 400
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
         self.esp.write(packet)
         time.sleep(0.1)
+        self.z = 0
+        self.a = 400
     def readPosition(self):
         packet = [0xFF, 0xFF, 2, 0x02]
+        read_start = time.time()
         apply_checksum(packet)
         self.serialDevice.write(packet)
         # print(packet)
@@ -74,6 +80,12 @@ class Robot():
                 packet = packets[-1]
                 robot_event['readedXY'] = 0
                 break
+            if time.time() - read_start > 1:
+                packet = [0xFF, 0xFF, 2, 0x02]
+                read_start = time.time()
+                apply_checksum(packet)
+                self.serialDevice.write(packet)
+                time.sleep(0.1)
         return packet[4] * 256 + packet[5], packet[6] * 255 + packet[7]  # X, Y
     def writePositionXY(self, x, y):
         packet = [0xFF, 0xFF, 6, 0x03, int(x / 256), x % 256, int(y / 256), y % 256]
@@ -92,16 +104,17 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
         print(packet)
-        time.sleep(0.2)
+        time.sleep(0.5)
         ## A ## {255, 255, 5, 3, 1, high_byte, low_byte, checkSum}
         packet = [0xFF, 0xFF, 5, 0x03, 1, int(a / 256), a % 256]
         apply_checksum(packet)
         self.esp.write(packet)
         print(packet)
     def writeTrajectoryXY(self, x1, y1):
+        print("writeTrajectoryXY")
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + ", Y0=" + str(y0))
-        c3, c4, theta, gramma, t = self.tj_solve(x1, y1, 0, x0, y0, 0)
+        c3, c4, theta, gramma, t = self.tj_solve(x1, y1, 5, x0, y0, 20)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
         theta_packet = [0 if theta > 0 else 1, int(abs(theta)) % 256, int((abs(theta) * 100) % 100),
@@ -112,13 +125,16 @@ class Robot():
         packet = [0xFF, 0xFF, 21, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
         apply_checksum(packet)
         self.serialDevice.write(packet)
+        robot_event['trajectoryXY_arrived'] = 0
         print("PIC: " + str(packet))
     def writeTrajectoryZ(self, z1, a1):
+        print("writeTrajectoryZ")
         ## A ##
+        t=0
         packet = [0xFF, 0xFF, 7, 0x03, 0x01, int(a1 / 256), int(a1 % 256), int(t * 1000 / 256), int(t * 1000) % 256]
         apply_checksum(packet)
         self.esp.write(packet)
-        x0, y0, x1, y1 = 0, 0, 0, 0
+        x0, y0, x1, y1 = 100, 100, 105, 105
         z0 = self.Z
         c3, c4, theta, gramma, t = self.tj_solve(x1, y1, z1, x0, y0, z0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
@@ -136,6 +152,7 @@ class Robot():
         self.Z = z1
         time.sleep(0.02)
     def writeTrajectory(self, x1, y1, z1, a1):  # Ack {255, 255, 3, 4, 1, 0} every move
+        print("writeTrajectory")
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + "Y0=" + str(y0))
         z0 = self.Z
@@ -163,7 +180,7 @@ class Robot():
         apply_checksum(packet)
         self.serialDevice.write(packet)
         print("PIC: " + str(packet))
-
+        robot_event['trajectoryXY_arrived'] = 0
         time.sleep(0.1)
         responsePacket = self.serialDevice.read(self.serialDevice.inWaiting())  # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
         if len(responsePacket) != 4: return False  # Doesn't receive acknowledge
@@ -192,9 +209,9 @@ class Robot():
         self.serialDevice.write(packet)
         count = 0
     def tj_solve(self, x1, y1, z1, x0, y0, z0):
-        vel_x_max = 150
-        vel_y_max = 150
-        vel_z_max = 1000 * 7 / 250
+        vel_x_max = 80
+        vel_y_max = 80
+        vel_z_max = 700 * 7 / 250
         vel_x = 200
         vel_y = 200
         vel_z = 100
@@ -277,9 +294,6 @@ packets = []
 packets_esp = []
 def robot_reciever():
     while True:
-        if state != 0 or state != 7: # No need to listen
-            time.sleep(2)
-            continue
         responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # PIC
         if responsePacket:
             packet = list(responsePacket)
@@ -290,15 +304,18 @@ def robot_reciever():
                 packets.pop(-1)
             if packet[2] == 3 and packet[3] == 4 and packet[4] == 1:
                 robot_event['trajectoryXY_arrived'] = 1
+                print("trajectoryXY_arrived")
                 send([3, 1, 2])  # Deactivate Load Animation
                 packets.pop(-1)
             if packet[2] == 6 and packet[3] == 2:
                 robot_event['readedXY'] = 1
             if packet[2] == 3 and packet[3] == 7 and packet[4] == 0: # Start Circle
                 event['circular_running'] = True
+                print("Start Circular")
                 packets.pop(-1)
             if packet[2] == 3 and packet[3] == 7 and packet[4] == 1: # Stop Circle
                 event['circular_running'] = False
+                print("Stop Circular")
                 packets.pop(-1)
             print(packets)
             print("Recieved: " + str(packet))
@@ -309,6 +326,7 @@ def robot_reciever():
             packets_esp.append(packet)
             if packet[2] == 3 and packet[3] == 5 and packet[4] == 1:
                 robot_event['homedZ'] = 1
+                print("Z: homed")
                 send([3, 1, 2])  # Deactivate Load Animation
         time.sleep(0.2)
         # HOME          [0xFF, 0xFF, 3, 5, 0x01, checksum]
@@ -381,12 +399,23 @@ def recieving():
                         robot.set_homeXY()
                     robot.writeTrajectoryXY(200, 200)
             if data[1] == 4: # WriteTrajectory {3, 4, x_high, x_low, y_high, y_low, z_high, z_low, a_high, a_low}
-                send([3, 1, 3])  # Activate Load Animation
                 x_pos = data[2]*256 + data[3]
                 y_pos = data[4]*256 + data[5]
                 z_pos = data[6]*256 + data[7]
                 a_pos = data[8]*256 + data[9]
-                robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
+                if robot.x == x_pos and robot.y == y_pos: # No move in X, Y
+                    if robot.z != z_pos or robot.a != a_pos: robot.writeTrajectoryZ(z_pos, a_pos)
+                else:
+                    if robot.z != z_pos or robot.a != a_pos:
+                        send([3, 1, 3])  # Activate Load Animation
+                        robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
+                    else:
+                        send([3, 1, 3])  # Activate Load Animation
+                        robot.writeTrajectoryXY(x_pos, y_pos)
+                robot.x = x_pos
+                robot.y = y_pos
+                robot.z = z_pos
+                robot.a = a_pos
             if data[1] == 5:  # Run Button
                 if data[2] == 3:
                     event['recon'] = 1 # Reconstruction
@@ -407,25 +436,42 @@ def mainThread():
     while True:
         ### Do State ###
         if state == 0: # Setting
-            if captured_image['warped'] is not None:
-                cast.send('2', captured_image['warped'])
+            if use_standby:
+                use_standby = False
+                captured_image['reconstructed'] = cv2.imread("X:/final.png")
+                if captured_image['reconstructed'] is not None: cast.send('3', captured_image['reconstructed'])
         if state == 1: # Capture Template
             frame = cap.read()
+            alpha = 0.5
+            # rect_mask = cv2.rectangle(np.ones_like(frame)*255, (860, 440), (1060, 640), (0, 0, 0), -1)
+            rect_mask = cv2.rectangle(np.ones_like(frame) * 255, (760, 340), (1160, 740), (0, 0, 0), -1)
+            cv2.addWeighted(rect_mask, alpha, frame, 1 - alpha,0, frame)
             cast.send('1', imutils.resize(frame, height=720))
             if event['capture']:
                 event['capture'] = 0 # Clear flag
                 captured_image['template_raw'] = frame
+                captured_image['template'] = imutils.resize(frame[340:740, 760:1160], height=200)
+                cv2.imwrite("X:/template.png", captured_image['template'])
+                cast.send('3', imutils.resize(captured_image['template'], height=800))
                 aruco = aruco_crop(frame)
                 if aruco != 0:  # if workspace avaliable
                     captured_image['warped'] = aruco[0]
-                cv2.imshow("Template_RAW", captured_image['template_raw'])
-                cv2.waitKey(1)
+            if use_standby:
+                use_standby = False
+                captured_image['template'] = cv2.imread("X:/template.png")
+                if captured_image['template'] is not None:
+                    display_image = imutils.resize(captured_image['template'], height=800)
+                    cast.send('3', display_image)
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "Segmentation", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
         if state == 2: # Capture Workspace
             frame = cap.read()
             aruco = aruco_crop(frame)
             if aruco != 0:  # if workspace avaliable
                 warped, valid_mask = aruco
-                cast.send('2', warped)
+                cast.send('3', warped)
             if event['circular_running']:
                 out = cv2.VideoWriter('X:/out.avi', fourcc, 30.0, (1920, 1080))
                 while event['circular_running']:  # Time required = time.sleep(8*n+8)
@@ -441,7 +487,7 @@ def mainThread():
                         aruco = aruco_crop(frame_vdo)
                         if aruco != 0:
                             warped, valid_mask = aruco
-                            cast.send('2', warped)
+                            cast.send('3', warped)
                             vdo_warped.append(warped)
                             vdo_mask.append(valid_mask)
                     except: continue
@@ -491,27 +537,56 @@ def mainThread():
                     cast.send('3', standby_image1)
         if state == 4: # Segmentation
             if event['segment']:
+                print("Start segmentation")
+                send([3, 1, 1])  # Activate Load Animation
+                captured_image['segment'] = DBSCAN.cluster(captured_image['reconstructed'], esp_value=0.7, scale=2, N=1000)
+                cv2.imwrite("X:/segment.png", captured_image['segment'])
+                display_image = cv2.cvtColor(captured_image['segment'], cv2.COLOR_GRAY2BGR)
 
+                cast.send('3', display_image)
+                send([3, 1, 0])  # Deactivate Load Animation
                 event['segment'] = 0 # Clear event flag
+                print("Segmentation Finished")
             if use_standby:
                 use_standby = False
-                if captured_image['segment'] is not None: cast.send('3', captured_image['segment'])
+                captured_image['segment'] = cv2.imread("X:/segment.png", 0)
+                if captured_image['segment'] is not None:
+                    display_image = captured_image['segment']
+                    cast.send('3', display_image)
                 else:
                     standby_image1 = standby_image.copy()
                     cv2.putText(standby_image1, "Segmentation", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
                     cast.send('3', standby_image1)
         if state == 5: # Locate Marker
             if event['locateMarker']:
+                send([3, 1, 1])  # Activate Load Animation
+                if captured_image['template'] is None: captured_image['template'] = cv2.imread("X:/template.png")
+                captured_image['startMask'], start_center = search_marker.run(captured_image['reconstructed'], captured_image['template'], visualize=False)
+                cv2.imwrite("X:/startMask.png", captured_image['startMask'])
+                captured_image['chessMask'], chess_center = search_chess.run(captured_image['segment'])
+                cv2.imwrite("X:/chessMask.png", captured_image['chessMask'])
+                display_image = cv2.bitwise_or(captured_image['startMask'], captured_image['chessMask'])
+                cast.send('3', display_image)
                 event['locateMarker'] = 0 # Clear event flag
+                send([3, 1, 0])  # Deactivate Load Animation
             if use_standby:
                 use_standby = False
-                if captured_image['locateMarker'] is not None: cast.send('3', captured_image['locateMarker'])
+                if captured_image['startMask'] is None: captured_image['startMask'] = cv2.imread("X:/startMask.png", 0)
+                if captured_image['chessMask'] is None: captured_image['chessMask'] = cv2.imread("X:/chessMask.png", 0)
+                if captured_image['startMask'] is not None and captured_image['chessMask'] is not None:
+                    display_image = cv2.bitwise_or(captured_image['startMask'], captured_image['chessMask'])
+                    cast.send('3', display_image)
                 else:
                     standby_image1 = standby_image.copy()
                     cv2.putText(standby_image1, "Locate Marker", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
                     cast.send('3', standby_image1)
         if state == 6: # Generate Path
             if event['generatePath']:
+                path_mask_opening = bicorn.getPathMask(captured_image['segment'], captured_image['startMask'], captured_image['chessMask'])
+                cast.send('3', cv2.cvtColor(path_mask_opening, cv2.COLOR_GRAY2BGR))
+
+                bicorn.getPath(path_mask_opening)
+
                 event['generatePath'] = 0 # Clear event flag
             if use_standby:
                 use_standby = False

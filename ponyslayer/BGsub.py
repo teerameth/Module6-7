@@ -54,7 +54,7 @@ def run(use_random=True, visualize=False):
                     cv2.imwrite(str(i) + ".jpg", warped)
                     i += 1
     cv2.imwrite("X:/final.png", bg)
-    cv2.waitKey(0)
+    # cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":

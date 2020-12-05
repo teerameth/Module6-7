@@ -17,16 +17,16 @@ dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
 
-cap = cv2.VideoCapture(cv2.CAP_DSHOW)
-codec = 0x47504A4D  # MJPG
-cap.set(cv2.CAP_PROP_FPS, 30.0)
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
-cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-cap.set(3, 1920)
-cap.set(4, 1080)
+# cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+# codec = 0x47504A4D  # MJPG
+# cap.set(cv2.CAP_PROP_FPS, 30.0)
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+# cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+# cap.set(3, 1920)
+# cap.set(4, 1080)
 
-# cap = cv2.VideoCapture("A.mp4")
+cap = cv2.VideoCapture("../Q.mp4")
 
 parameters =  cv2.aruco.DetectorParameters_create()
 parameters.cornerRefinementMethod = 2
@@ -60,14 +60,26 @@ def drawBox(frame, rvec, tvec, size = 0.4):
     cv2.line(frame, tuple(imgpts[2+4].ravel()), tuple(imgpts[3+4].ravel()), (0,0,255), 2)
     cv2.line(frame, tuple(imgpts[3+4].ravel()), tuple(imgpts[0+4].ravel()), (0,0,255), 2) 
 
+marker_register = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 20, 30, 40, 50, 60, 70, 80, 90], [9, 19, 29, 39, 49, 59, 69, 79, 89, 99], [90, 91, 92, 93, 94, 95, 96, 97, 98, 99]]
+
 while True:
     _, frame = cap.read()
     markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+    side_count = 0
+    for register in marker_register:
+        for id in markerIds:
+            if id in register:
+                side_count += 1
+                break
+    if side_count < 3: continue
+
+
     # try:
     #     rvecs, tvecs, markerPoints = cv2.aruco.estimatePoseSingleMarkers(markerCorners, 0.05, cameraMatrix, dist)
     #     for i in range(len(markerCorners)): cv2.aruco.drawAxis(frame, cameraMatrix, dist, rvecs[i], tvecs[i], 0.1)
     # except: pass
     if markerIds is not None:
+        print(markerIds)
         ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
         if ret:
             # cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1) # origin
