@@ -48,8 +48,8 @@ def segment(img, K=3):
 def main():
     img = cv2.imread("./img/Real6.png")
     mask = segment(img, K=3)
-    # cv2.imshow("A", mask)
-    # cv2.waitKey(0)
+    cv2.imshow("A", mask)
+    cv2.waitKey(0)
 
 if __name__ == '__main__':
     main()

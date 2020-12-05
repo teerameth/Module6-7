@@ -5,14 +5,10 @@ import numpy as np
 import BGsub, BGsub_frank, recon_median, frankenstein
 backlog = 1
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('127.0.0.1', 12345))
-# s1.bind(('127.0.0.1', 11111))
 s.listen(backlog)
-# s1.listen(backlog)
 print("Waiting for Unity")
 client, address = s.accept()
-# client1, address1 = s1.accept()
 print("Connected")
 state_name = ['setting', 'captureTemplate', 'captureWorkspace', 'reconstruction', 'segmentation', 'locateMarker', 'generatePath', 'visualize']
 ### Parameters ###
@@ -21,9 +17,11 @@ cap = Camera()
 run, state, previous_state = 1, 1, 1
 event = {'capture':0, 'circular':0, 'connect':0, 'connectXY':0, 'connectZ':0, 'home':0, 'homeXY':0, 'homeZ':0, 'circular_running':0, 'recon':0, 'segment':0, 'locateMarker':0, 'generatePath':0, 'visualize':0}
 robot_event = {'homing':0, 'homingXY':0, 'homedXY':0, 'homingZ':0, 'homedZ':0, 'trajectoryXY_running':0, 'trajectoryXY_arrived':0, 'readedXY':0}
-captured_image = {'warped':None, 'template_raw':None, 'template':None, 'reconstructed':None}
+captured_image = {'warped':None, 'template_raw':None, 'template':None, 'reconstructed':None, 'segment':None, 'locateMarker':None, 'generatePath': None, 'visualize': None}
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 standby_image = imutils.resize(cv2.imread("bicorn.jpg"), height=800)
+use_standby = True
+recon_mode = 6
 def apply_checksum(l):
     checkSumOrdList = l[2:]
     checkSumOrdListSum = sum(checkSumOrdList)
@@ -279,6 +277,9 @@ packets = []
 packets_esp = []
 def robot_reciever():
     while True:
+        if state != 0 or state != 7: # No need to listen
+            time.sleep(2)
+            continue
         responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # PIC
         if responsePacket:
             packet = list(responsePacket)
@@ -317,7 +318,7 @@ def robot_reciever():
 ###############
 def recieving():
     global state, previous_state, run
-    global event
+    global event, recon_mode, use_standby
     while True:
         data = client.recv(64)
         if not data: continue # Pass if there is no data
@@ -327,6 +328,7 @@ def recieving():
         if data[0] == 1: # Change state
             state = int(data[1])
             if previous_state != state:
+                use_standby = True
                 previous_state = state
                 print("State: " + state_name[state])
         if data[0] == 2: # Change Parameter
@@ -343,13 +345,15 @@ def recieving():
                 if data[2] == 0: # Connect All
                     if event['connectXY'] == 0: robot.connectXY()
                     if event['connectZ'] == 0: robot.connectZ()
-                    event['connectXY'], event['connectZ']= 1, 1
+                    event['connectXY'], event['connectZ'], event['connect'] = 1, 1, 1
                 if data[2] == 1: # Connect XY
                     if event['connectXY'] == 0: robot.connectXY()
                     event['connectXY'] = 1
+                    if event['connectZ']: event['connect'] = 1
                 if data[2] == 2: # Connect Z
                     if event['connectZ'] == 0: robot.connectZ()
                     event['connectZ'] = 1
+                    if event['connectXY']: event['connect'] = 1
             if data[1] == 3: # Home
                 if data[2] == 0: # Home All
                     send([3, 1, 3]) # Activate Load Animation
@@ -384,7 +388,9 @@ def recieving():
                 a_pos = data[8]*256 + data[9]
                 robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
             if data[1] == 5:  # Run Button
-                if data[2] == 3: event['recon'] = 1 # Reconstruction
+                if data[2] == 3:
+                    event['recon'] = 1 # Reconstruction
+                    recon_mode = data[3] # Get reconstruction mode
                 if data[2] == 4: event['segment'] = 1 # Segmentation
                 if data[2] == 5: event['locateMarker'] = 1 # Locate Marker
                 if data[2] == 6: event['generatePath'] = 1 # Generate Path
@@ -392,7 +398,7 @@ def recieving():
 
 
 def mainThread():
-    global state, run, frame, cast
+    global state, run, frame, cast, use_standby
     cast = VDO2Unity() ## init opengl must be in thread to be able to run
     cast.createChannel(1280, 720, '1')
     cast.createChannel(800, 800, '2')
@@ -447,7 +453,8 @@ def mainThread():
                 robot.circular_motion(CIRCULAR_ROUND)
         if state == 3: # Reconstruction (Get X:/final.png)
             if event['recon']: # Reconstruct button triggered
-                recon_mode = 6
+                # recon_mode = 6
+                start = time.time()
                 print("Start Reconstrunction Process")
                 send([3, 1, 1])  # Activate Load Animation
                 if recon_mode == 0: # Median with valid mask
@@ -472,20 +479,57 @@ def mainThread():
                 event['recon'] = 0 # Clear event flag
                 send([3, 1, 0])  # Deactivate Load Animation
                 captured_image['reconstructed'] = cv2.imread("X:/final.png")
-            if captured_image['reconstructed'] is not None: cast.send('3', captured_image['reconstructed'])
-            else: cast.send('3', standby_image)
+                cast.send('3', captured_image['reconstructed'])
+                print("Process use " + str(int(time.time() - start)) + "second.")
+            if use_standby:
+                use_standby = False
+                captured_image['reconstructed'] = cv2.imread("X:/final.png")
+                if captured_image['reconstructed'] is not None: cast.send('3', captured_image['reconstructed'])
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "Reconstruction", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
         if state == 4: # Segmentation
-            if captured_image['segment'] is not None: cast.send('3', captured_image['segment'])
-            else: cast.send('3', standby_image)
+            if event['segment']:
+
+                event['segment'] = 0 # Clear event flag
+            if use_standby:
+                use_standby = False
+                if captured_image['segment'] is not None: cast.send('3', captured_image['segment'])
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "Segmentation", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
         if state == 5: # Locate Marker
-            if captured_image['locateMarker'] is not None: cast.send('3', captured_image['locateMarker'])
-            else: cast.send('3', standby_image)
+            if event['locateMarker']:
+                event['locateMarker'] = 0 # Clear event flag
+            if use_standby:
+                use_standby = False
+                if captured_image['locateMarker'] is not None: cast.send('3', captured_image['locateMarker'])
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "Locate Marker", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
         if state == 6: # Generate Path
-            if captured_image['generatePath'] is not None: cast.send('3', captured_image['generatePath'])
-            else: cast.send('3', standby_image)
+            if event['generatePath']:
+                event['generatePath'] = 0 # Clear event flag
+            if use_standby:
+                use_standby = False
+                if captured_image['generatePath'] is not None: cast.send('3', captured_image['generatePath'])
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "Generate Path", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
         if state == 7: # Visualize
-            if captured_image['visualize'] is not None: cast.send('3', captured_image['visualize'])
-            else: cast.send('3', standby_image)
+            if event['visualize']:
+                event['visualize'] = 0 # Clear event flag
+            if use_standby:
+                use_standby = False
+                if captured_image['visualize'] is not None: cast.send('3', captured_image['visualize'])
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "Visualize", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
 
 if __name__ == "__main__":
     t1 = threading.Thread(target=mainThread, name='t1')   # creating threads
@@ -493,6 +537,7 @@ if __name__ == "__main__":
     t1.start()  # starting threads
     t2.start()
     while True:
+        time.sleep(1)
         if event['connectXY'] == 1:
             t3 = threading.Thread(target=robot_reciever, name='t3')
             t3.start()
