@@ -39,18 +39,20 @@ void applyCheckSum(uint8_t *buffer, int length);
 void IRAM_ATTR onStepper(){
   
   reportCnt++;
-  if(tA_left > 1)tA_left--; // Time counter in ms.
   if(tB_left > 1)tB_left--;
   if(t<tf){
     theta_t = (((c4*t)+c3)*t+c2)*t+c1;
     theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
     setpoint_z = (theta_t)*sin(gramma);
     vel_z = (theta_dot_t)*sin(gramma);
+    int err_z =(setpoint_z*250/7)-Zaxis.currentPosition();
+    Zaxis.setSpeed( vel_z*250/7+err_z);
     //t_stepACnt++;
   }
-//  else{
-//    Zaxis.moveTo((long)(setpoint_z*250/7));
-//  }
+  else if((int)(setpoint_z*250/7)== Zaxis.currentPosition())
+  {
+    Zaxis.setSpeed(0);
+  }
   deltaB = stepBDes - stepBPos;
   if(deltaB){
     if(deltaB > 0){
@@ -64,8 +66,7 @@ void IRAM_ATTR onStepper(){
     digitalWrite(stepPinB, HIGH);
     digitalWrite(stepPinB, LOW);
   }
-  Zaxis.setSpeed( -vel_z*260/6);
-  if(!homing)Zaxis.runSpeed();
+  Zaxis.runSpeed();
   t += 0.001;
 }
 
@@ -234,7 +235,7 @@ void shift_buffer(int n, uint8_t *buffer, int buffer_size){ // Shift buffer to t
 void setZero() {
   digitalWrite(dirPinA, LOW); // up
   while (digitalRead(limitSwitchPin) == 0) {
-    digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(1000);
+    digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, HIGH); delayMicroseconds(1000);
   }
   //Zaxis.setCurrentPosition(400*250/7);
   // Reset remembered position
