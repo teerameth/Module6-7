@@ -335,13 +335,16 @@ void circularMotion(int nf){
         c4 = 0.0102;
         r = 130;
         phi = 0;
-        gramma = 0;
         x0 = 140;
         y0 = 150;
         path_mode = 1;
-        tf = (tf1*n)+8;
+        tf = (tf1*n)+6;
     }
     else if(t > (tf1*n)+8 && n > nf && t > 8){
+        c1 = 0;
+        c2 = 0;
+        c3 = 0.0;
+        c4 = 0.0;
         circle_running = false;
         ack_packet[2] = 3;
         ack_packet[3] = 7;
