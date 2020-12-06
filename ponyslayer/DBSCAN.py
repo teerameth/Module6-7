@@ -88,8 +88,10 @@ def cluster(frame, visualize = False, esp_value=0.7, min_samples=500, N=1000, sc
     cv2.rectangle(border_mask, (int(H.shape[0]*ratio), int(H.shape[1]*ratio)), (int(H.shape[0]*(1-ratio)), int(H.shape[0]*(1-ratio))), 0, -1)
     mask = cv2.bitwise_or(mask, border_mask)
     if scale !=1 : mask = imutils.resize(mask, height=original_height)
-    mask = np.asarray(mask, dtype=np.uint8)
-    return mask
+    # mask = np.asarray(mask, dtype=np.uint8)
+    # _, thresh = cv2.threshold(cv2.cvtColor(imutils.resize(frame, height=800), cv2.COLOR_BGR2GRAY), 80, 255, cv2.THRESH_BINARY_INV)
+    # mask = cv2.bitwise_or(mask, thresh)
+    return np.asarray(mask, dtype=np.uint8)
 
 if __name__ == "__main__":
     import time

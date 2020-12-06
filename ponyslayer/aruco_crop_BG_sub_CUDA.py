@@ -17,15 +17,15 @@ dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
 
-# cap = cv2.VideoCapture(cv2.CAP_DSHOW)
-# codec = 0x47504A4D  # MJPG
-# cap.set(cv2.CAP_PROP_FPS, 30.0)
-# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
-# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
-# cap.set(3, 1920)
-# cap.set(4, 1080)
+cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+codec = 0x47504A4D  # MJPG
+cap.set(cv2.CAP_PROP_FPS, 30.0)
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+cap.set(3, 1920)
+cap.set(4, 1080)
 
-cap = cv2.VideoCapture("../O.mp4")
+# cap = cv2.VideoCapture("../O.mp4")
 cuda_stream = cv2.cuda_Stream()
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)

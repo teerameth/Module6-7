@@ -115,7 +115,9 @@ def getPathMask(mask, startMask, chessMask):
     path_mask = cv2.bitwise_or(mask, chessMask)
     path_mask = cv2.bitwise_or(path_mask, startMask)
     path_mask = cv2.bitwise_not(path_mask)
-    path_mask_opening = cv2.morphologyEx(path_mask, cv2.MORPH_OPEN, np.ones((9, 9)))
+    path_mask_opening = cv2.morphologyEx(path_mask, cv2.MORPH_OPEN, np.ones((15, 15)))
+    # cv2.imshow("A", path_mask_opening)
+    # cv2.waitKey(0)
     return path_mask_opening
 def getPath(path_mask_opening, visualize=False):
     min_area = 20000
@@ -206,7 +208,18 @@ def sortPoint(points, start):
     canvas = np.zeros((800, 800, 3))
     canvas = implotlineXY(new_points, canvas)
     return np.asarray(new_points, dtype=np.int32)
-
+def solve_intersection(p1a, p1b, p2a, p2b):
+    (x0, y0) = p1a
+    (x1, y1) = p1b
+    (x2, y2) = p2a
+    (x3, y3) = p2b
+    m1 = (y1-y0)/(x1-x0)
+    m2 = (y3-y2)/(x3-x2)
+    c1 = y0 - m1*x0
+    c2 = y2 - m2*x2
+    x = (c2-c1)/(m1-m2)
+    y = m1*x + c1
+    return (x, y)
 def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hover_height=400):
     command_list = []
     startContour = cv2.findContours(startMask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0][0]
@@ -234,7 +247,8 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
         return command_list
     if len(path_cnts) == 2: # Two path -> interpolate 2nd marker
         A, B = path_cnts[0], path_cnts[1]
-        best = {'cost':99999999, 'command': None}
+        best = {'cost':99999999, 'command': None, 'marker_index': None}
+        markerB_index = None
         for A_direction in [0, 1]: # 0 = Normal, 1 = reversed
             for B_direction in [0, 1]: # 0 = Normal, 1 = reversed
                 for order in [0, 1]: # 0 = A -> B, 1 = B -> A
@@ -250,6 +264,7 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
                             points += [A[-1], A[0]]
                             command_list.append((startCenter[0] / 2, startCenter[1] / 2, waypoints3D_approx_list[0][-1][2]))
                             command_list += reversed(waypoints3D_approx_list[0])
+                            markerB_index = len(command_list)
                         if B_direction == 0:
                             points += [B[0], B[-1]]
                             command_list += waypoints3D_approx_list[1]
@@ -267,6 +282,7 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
                             points += [B[-1], B[0]]
                             command_list.append((startCenter[0] / 2, startCenter[1] / 2, waypoints3D_approx_list[1][-1][2]))
                             command_list += reversed(waypoints3D_approx_list[1])
+                        markerB_index = len(command_list)
                         if A_direction == 0:
                             points += [A[0], A[-1]]
                             command_list += waypoints3D_approx_list[0]
@@ -281,6 +297,17 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
                     if cost < best['cost']: # Update best value
                         best['cost'] = cost
                         best['command'] = command_list.copy()
+                        best['marker_index'] = markerB_index
+                        # canvas1 = np.zeros((800, 800, 3))
+                        # canvas1 = implotlineXY(best['command'], canvas1)
+                        # cv2.imshow("A", canvas1)
+                        # cv2.waitKey(0)
+        i = best['marker_index']
+        middleMarker = solve_intersection((best['command'][i-2][0], best['command'][i-2][1]),
+                                          (best['command'][i-1][0], best['command'][i-1][1]),
+                                          (best['command'][i][0], best['command'][i][1]),
+                                          (best['command'][i+1][0], best['command'][i+1][1]))
+        best['command'].insert(i, (middleMarker[0], middleMarker[1], best['command'][i][2]))
         canvas = np.zeros((800, 800, 3))
         canvas = implotlineXY(best['command'], canvas)
         return best['command'], canvas
