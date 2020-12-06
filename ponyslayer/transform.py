@@ -56,8 +56,18 @@ dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
 markerLength = 0.04
 markerSeparation = 0.01
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
+marker_register = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 20, 30, 40, 50, 60, 70, 80, 90], [9, 19, 29, 39, 49, 59, 69, 79, 89, 99], [90, 91, 92, 93, 94, 95, 96, 97, 98, 99]]
+
 def aruco_crop(frame):
 	markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+	side_count = 0
+	for register in marker_register:
+		if markerIds is None: break
+		for id in markerIds:
+			if id in register:
+				side_count += 1
+				break
+	if side_count < 3: return 0
 	if markerIds is not None:
 		ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
 		if ret:

@@ -15,6 +15,15 @@ def rotate_image(image, angle):
     rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
     result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
     return result
+def rotate_image_white(image, angle):
+    image_center = tuple(np.array(image.shape[1::-1]) / 2)
+    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+    result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
+    mask = np.ones_like(image)*255
+    mask = cv2.warpAffine(mask, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
+    mask = cv2.bitwise_not(mask)
+    result = cv2.bitwise_or(mask, result)
+    return result
 def padding_image(img, color):
     s = max(img.shape[0:2])
     f = np.ones((s, s, 3),np.uint8) * color

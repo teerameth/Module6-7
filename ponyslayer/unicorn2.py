@@ -9,6 +9,9 @@ from OpenGL.GLUT import *
 class Camera():
     def __init__(self):
         self.cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+        self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+        self.cap.set(cv2.CAP_PROP_AUTO_WB, 0)
+        self.cap.set(cv2.CAP_PROP_SETTINGS, 1) # Open setup window
         codec = 0x47504A4D  # MJPG
         self.cap.set(cv2.CAP_PROP_FPS, 30.0)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m', 'j', 'p', 'g'))
@@ -42,6 +45,8 @@ class VDO2Unity():
         # initialise texture
         glBindTexture(GL_TEXTURE_2D, self.senderTextureID[name])
     def send(self, name, frame):
+        if len(frame.shape) != 3:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
         # Copy the frame from the opencv into the sender texture
         glBindTexture(GL_TEXTURE_2D, self.senderTextureID[name])
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.width[name], self.height[name], 0, GL_BGR, GL_UNSIGNED_BYTE, cv2.flip(frame, 0))
