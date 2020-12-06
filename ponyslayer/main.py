@@ -345,8 +345,8 @@ def recieving():
             pass
         if data[0] == 1: # Change state
             state = int(data[1])
+            use_standby = True
             if previous_state != state:
-                use_standby = True
                 previous_state = state
                 print("State: " + state_name[state])
         if data[0] == 2: # Change Parameter
@@ -438,8 +438,12 @@ def mainThread():
         if state == 0: # Setting
             if use_standby:
                 use_standby = False
-                captured_image['reconstructed'] = cv2.imread("X:/final.png")
-                if captured_image['reconstructed'] is not None: cast.send('3', captured_image['reconstructed'])
+                if cv2.imread("X:/final.png") is not None:
+                    cast.send('3', cv2.imread("X:/final.png"))
+                else:
+                    standby_image1 = standby_image.copy()
+                    cv2.putText(standby_image1, "NO DATA", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cast.send('3', standby_image1)
         if state == 1: # Capture Template
             frame = cap.read()
             alpha = 0.5
@@ -582,14 +586,25 @@ def mainThread():
                     cast.send('3', standby_image1)
         if state == 6: # Generate Path
             if event['generatePath']:
+                send([3, 1, 1])  # Activate Load Animation
+                if captured_image['reconstructed'] is None: captured_image['reconstructed'] = cv2.imread("X:/final.png")
+                if captured_image['segment'] is None: captured_image['segment'] = cv2.imread("X:/segment.png", 0)
+                if captured_image['startMask'] is None: captured_image['startMask'] = cv2.imread("X:/startMask.png", 0)
+                if captured_image['chessMask'] is None: captured_image['chessMask'] = cv2.imread("X:/chessMask.png", 0)
                 path_mask_opening = bicorn.getPathMask(captured_image['segment'], captured_image['startMask'], captured_image['chessMask'])
                 cast.send('3', cv2.cvtColor(path_mask_opening, cv2.COLOR_GRAY2BGR))
 
-                bicorn.getPath(path_mask_opening)
-
+                path_cnts, path_cnts_approx, canvas = bicorn.getPath(path_mask_opening=path_mask_opening, visualize=False)
+                cast.send('3', canvas)
+                waypoints3D_approx_list = bicorn.getPath3D(src=captured_image['reconstructed'], path_cnts=path_cnts, path_cnts_approx=path_cnts_approx)
+                command_queue, canvas = bicorn.generateCommand(captured_image['startMask'], captured_image['chessMask'], path_cnts, waypoints3D_approx_list)
+                cast.send('3', canvas)
+                print(command_queue)
                 event['generatePath'] = 0 # Clear event flag
+                send([3, 1, 0])  # Deactivate Load Animation
             if use_standby:
                 use_standby = False
+                captured_image['generatePath'] = cv2.imread("X:/generatePath.png")
                 if captured_image['generatePath'] is not None: cast.send('3', captured_image['generatePath'])
                 else:
                     standby_image1 = standby_image.copy()

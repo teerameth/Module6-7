@@ -62,6 +62,7 @@ def aruco_crop(frame):
 	markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
 	side_count = 0
 	for register in marker_register:
+		if markerIds is None: break
 		for id in markerIds:
 			if id in register:
 				side_count += 1
