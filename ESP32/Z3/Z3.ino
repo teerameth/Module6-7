@@ -24,7 +24,7 @@ AccelStepper Zaxis(1, stepPinA, dirPinA); // pin 5 = step, pin 8 = direction
 
 volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
 double c1 = 0, c2 = 0, c3, c4, gramma;
-volatile double theta_t, theta_dot_t, setpoint_z, vel_z, t, tf;
+volatile double theta_t, theta_dot_t, setpoint_z, vel_z, t, tf, z0;
 int reportCnt = 0;
 int stepPin, dirPin, delta;
 int deltaA, deltaB;
@@ -43,10 +43,10 @@ void IRAM_ATTR onStepper() {
   if (t < tf) {
     theta_t = (((c4 * t) + c3) * t + c2) * t + c1;
     theta_dot_t = ((3 * c4 * t) + c3 * 2) * t + c2;
-    setpoint_z = (theta_t) * sin(gramma);
+    setpoint_z = z0 + (theta_t) * sin(gramma);
     vel_z = (theta_dot_t) * sin(gramma);
     int err_z = (setpoint_z * 250 / 7) - Zaxis.currentPosition();
-    Zaxis.setSpeed( vel_z * 250 / 7 + err_z);
+    Zaxis.setSpeed( vel_z * 250 / 7 + 10*err_z);
     //t_stepACnt++;
     tj_running = true;
   }
@@ -62,6 +62,7 @@ void IRAM_ATTR onStepper() {
     if ((int)(setpoint_z * 250 / 7) == Zaxis.currentPosition())
     {
       Zaxis.setSpeed(0);
+      z0 =  Zaxis.currentPosition() * 7 / 250;
     }
   }
 

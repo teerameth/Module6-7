@@ -25,7 +25,7 @@ standby_image = imutils.resize(cv2.imread("bicorn.jpg"), height=800)
 use_standby = True
 recon_mode = 6
 command_queue = []
-
+z_offset = 60
 packets = []
 packets_esp = []
 packet_readXY = []
@@ -56,12 +56,11 @@ class Robot():
     def ping(self, ser):
         test_data = random.randint(0, 256)
         packet = [0xFF, 0xFF, 3, 0x01, test_data]  # N=2 (Have 1 instruction)
-        apply_checksum(packet)
         ser.write(packet)
         time.sleep(0.1)
     def set_homeXY(self):
-        packet = [0xFF, 0xFF, 3, 0x05, 0]
-        apply_checksum(packet)
+        packet = [255, 255, 5]
+        while len(packet) != 30: packet.append(0)
         self.serialDevice.write(packet)
         time.sleep(0.1)
         self.x, self.y = 0, 0
@@ -74,47 +73,19 @@ class Robot():
         self.z = 0
         self.a = 400
     def readPosition(self):
-        packet = [0xFF, 0xFF, 2, 0x02]
-        read_start = time.time()
-        apply_checksum(packet)
+        packet = [255, 255, 2]
+        print("Reading")
+        while len(packet) != 30: packet.append(0)
         self.serialDevice.write(packet)
-        # print(packet)
         while True:
             if robot_event['readedXY']:
                 packet = packet_readXY
                 print("Read XY : " + str(packet))
                 robot_event['readedXY'] = 0
                 break
-            if time.time() - read_start > 1:
-                packet = [0xFF, 0xFF, 2, 0x02]
-                read_start = time.time()
-                apply_checksum(packet)
-                self.serialDevice.write(packet)
-                time.sleep(0.1)
-        return packet[4] * 256 + packet[5], packet[6] * 255 + packet[7]  # X, Y
-    def writePositionXY(self, x, y):
-        packet = [0xFF, 0xFF, 6, 0x03, int(x / 256), x % 256, int(y / 256), y % 256]
-        apply_checksum(packet)
-        self.serialDevice.write(packet)
-        print(packet)
-        time.sleep(0.1)
-        responsePacket = self.serialDevice.read(
-            self.serialDevice.inWaiting())  # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
-        if len(responsePacket) != 4: return False  # Doesn't receive acknowledge
-        return True
-    def writePositionZ(self, z, a):
-        self.Z = z
-        ## Z ## {255, 255, 5, 3, 0, high_byte, low_byte, checkSum}
-        packet = [0xFF, 0xFF, 5, 0x03, 0, int(z / 256), z % 256]
-        apply_checksum(packet)
-        self.esp.write(packet)
-        print(packet)
-        time.sleep(0.5)
-        ## A ## {255, 255, 5, 3, 1, high_byte, low_byte, checkSum}
-        packet = [0xFF, 0xFF, 5, 0x03, 1, int(a / 256), a % 256]
-        apply_checksum(packet)
-        self.esp.write(packet)
-        print(packet)
+            time.sleep(0.1)
+        print(int(packet[2]) * 256 + int(packet[3]), int(packet[4]) * 255 + int(packet[5]))
+        return int(packet[2]) * 256 + int(packet[3]), int(packet[4]) * 255 + int(packet[5])  # X, Y
     def writeTrajectoryXY(self, x1, y1):
         print("writeTrajectoryXY")
         x0, y0 = self.readPosition()
@@ -127,14 +98,16 @@ class Robot():
         gramma_packet = [0 if gramma > 0 else 1, int(abs(gramma)) % 256, int((abs(gramma) * 100) % 100),
                          int((abs(gramma) * 10000) % 100)]
         t_packet = [int(t) % 256, int((t * 100) % 100), int((t * 10000) % 100)]
-        packet = [0xFF, 0xFF, 21, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
-        apply_checksum(packet)
+        packet = [255, 255, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
+        while len(packet) != 30: packet.append(0)
         self.serialDevice.write(packet)
         robot_event['trajectoryXY_arrived'] = 0
         robot_event['trajectoryXY_running'] = 1
         print("PIC: " + str(packet))
         return t
     def writeTrajectoryZ(self, z1, a1):
+        z1 += z_offset
+        if z1 > 400: z1 = 400
         print("writeTrajectoryZ")
         ## A ##
         t=0
@@ -162,6 +135,8 @@ class Robot():
         time.sleep(0.02)
         return t
     def writeTrajectory(self, x1, y1, z1, a1):  # Ack {255, 255, 3, 4, 1, 0} every move
+        z1 += z_offset
+        if z1 > 400: z1 = 400
         print("writeTrajectory")
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + ", Y0=" + str(y0) + ", X1=" + str(x1) + ", Y1=" + str(y1))
@@ -184,8 +159,8 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
         ## XY ##
-        packet = [0xFF, 0xFF, 21, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
-        apply_checksum(packet)
+        packet = [255, 255, 0x04] + c3_packet + c4_packet + theta_packet + gramma_packet + t_packet
+        while len(packet) != 30: packet.append(0)
         self.serialDevice.write(packet)
         print("PIC: " + str(packet))
         robot_event['trajectoryXY_arrived'] = 0
@@ -215,8 +190,8 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
     def circular_motion(self, n):  # Ack {255, 255, 3, 4, 1, 0} every move
-        packet = [0xFF, 0xFF, 4, 0x07, 0x00, n]
-        apply_checksum(packet)
+        packet = [255, 255, 7, 0, n]
+        while len(packet) != 30: packet.append(0)
         self.serialDevice.write(packet)
         count = 0
     def tj_solve(self, x1, y1, z1, x0, y0, z0):
@@ -305,42 +280,31 @@ def loading(status):
 def robot_reciever():
     global packet_readXY
     while True:
-        responsePacket = robot.serialDevice.read(robot.serialDevice.inWaiting()) # PIC
-        if responsePacket:
-            packet = list(responsePacket)
-            packets.append(packet)
-            if packet[2] == 3 and packet[3] == 6 and packet[4] == 1:
-                print("Checksum Error")
-            if packet[2] == 3 and packet[3] == 6 and packet[4] == 2:
-                print("Checksum Passed")
-            if packet[2] == 3 and packet[3] == 6 and packet[4] == 3:
-                print("Start index: " + str(packet[5]))
-            if packet[2] == 3 and packet[3] == 5 and packet[4] == 1:
+        datas = robot.serialDevice.readline().decode('ASCII')
+        if datas != '':
+            print(datas)
+            print("------")
+            if 'home' in datas:
                 robot_event['homedXY'] = 1
                 send([3, 1, 2])  # Deactivate Load Animation
-                packets.pop(-1)
-            if packet[2] == 3 and packet[3] == 4 and packet[4] == 0: # Trajectory Ack
-                print("Trajectory Acknowledge")
-                packets.pop(-1)
-            if packet[2] == 3 and packet[3] == 4 and packet[4] == 1:
+
+            packet = datas.split(',')
+            print(packet)
+            print("Packet:" + str(packet))
+            if packet[0] == '6' and packet[1] == '2': # Read position data
+                packet_readXY = packet.copy()
+                robot_event['readedXY'] = 1
+            if packet[0] == '3' and packet[1] == '7' and packet[2] == '0': # Start Circle
+                event['circular_running'] = True
+                print("Stop Circular")
+            if packet[0] == '3' and packet[1] == '7' and packet[2] == '1': # Stop Circle
+                event['circular_running'] = False
+                print("Stop Circular")
+            if packet[0] == '3' and packet[1] == '4' and packet[2] == '1':
                 robot_event['trajectoryXY_arrived'] = 1
                 robot_event['trajectoryXY_running'] = 0
                 print("trajectoryXY_arrived")
                 send([3, 1, 2])  # Deactivate Load Animation
-                packets.pop(-1)
-            if packet[2] == 6 and packet[3] == 2:
-                packet_readXY = packet.copy()
-                robot_event['readedXY'] = 1
-            if packet[2] == 3 and packet[3] == 7 and packet[4] == 0: # Start Circle
-                event['circular_running'] = True
-                print("Start Circular")
-                packets.pop(-1)
-            if packet[2] == 3 and packet[3] == 7 and packet[4] == 1: # Stop Circle
-                event['circular_running'] = False
-                print("Stop Circular")
-                packets.pop(-1)
-            print(packets)
-            print("Recieved: " + str(packet))
 
         responsePacket = robot.esp.read(robot.esp.inWaiting()) # ESP32
         if responsePacket:
@@ -398,6 +362,7 @@ def recieving():
                     if event['connectZ'] == 0: robot.connectZ()
                     event['connectZ'] = 1
                     if event['connectXY']: event['connect'] = 1
+
             if data[1] == 3: # Home
                 if data[2] == 0: # Home All
                     send([3, 1, 3]) # Activate Load Animation
@@ -428,7 +393,6 @@ def recieving():
                 x_pos = data[2]*256 + data[3]
                 y_pos = data[4]*256 + data[5]
                 z_pos = data[6]*256 + data[7]
-                print("ZZZZZZZZZZZZZZZ")
                 print(z_pos)
                 a_pos = data[8]*256 + data[9]
                 if robot.x == x_pos and robot.y == y_pos: # No move in X, Y
@@ -452,6 +416,29 @@ def recieving():
                 if data[2] == 5: event['locateMarker'] = 1 # Locate Marker
                 if data[2] == 6: event['generatePath'] = 1 # Generate Path
                 if data[2] == 7: event['visualize'] = 1 # Visualize
+            if data[1] == 6: # Gripper Control
+                if data[2] == 0:
+                    print("Gripper Open")
+                    robot.gripper(170)
+                if data[2] == 1:
+                    robot.gripper(20)
+                    print("Gripper Close")
+            if data[1] == 7: # TJ manual
+                x_pos = data[2]*256 + data[3]
+                y_pos = data[4]*256 + data[5]
+                z_pos = data[6]*256 + data[7]
+                a_pos = data[8]*256 + data[9]
+                if robot.x == x_pos and robot.y == y_pos:  # No move in X, Y
+                    if robot.z != z_pos or robot.a != a_pos:
+                        t = robot.writeTrajectoryZ(z_pos, a_pos)
+                else:
+                    if robot.z != z_pos or robot.a != a_pos:
+                        send([3, 1, 3])  # Activate Load Animation
+                        t = robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
+                    else:
+                        send([3, 1, 3])  # Activate Load Animation
+                        t = robot.writeTrajectoryXY(x_pos, y_pos)
+                robot.x, robot.y, robot.z, robot.a = x_pos, y_pos, z_pos, a_pos
 
 
 def mainThread():
@@ -648,21 +635,43 @@ def mainThread():
                     cast.send('3', standby_image1)
         if state == 7: # Visualize & Execute
             if event['visualize']:
-                offset = 0
                 send([3, 1, 1])  # Activate Load Animation
                 robot_event['trajectoryXY_arrived'] = 1
                 robot_event['trajectoryZ_arrived'] = 1
+                robot.gripper(170)
+                ### Gripper on duty ###
+                gripper_queue = [(67, 376, 300, 400), (67, 376, 62, 400), -1, (67, 376, 75, 400), (67, 365, 75, 400), (67, 365, 290, 400), (67, 200, 290, 400)]
+                while len(gripper_queue) > 0:
+                    if gripper_queue[0] == -1:
+                        gripper_queue.pop(0)
+                        robot.gripper(20)
+                        time.sleep(1)
+                    else:
+                        (x_pos, y_pos, z_pos, a_pos) = gripper_queue[0]
+                        if robot.x == x_pos and robot.y == y_pos:  # No move in X, Y
+                            if robot.z != z_pos or robot.a != a_pos:
+                                t = robot.writeTrajectoryZ(z_pos, a_pos)
+                        else:
+                            if robot.z != z_pos or robot.a != a_pos:
+                                t = robot.writeTrajectory(x_pos, y_pos, z_pos, a_pos)
+                            else:
+                                t = robot.writeTrajectoryXY(x_pos, y_pos)
+                        robot.x, robot.y, robot.z, robot.a = x_pos, y_pos, z_pos, a_pos
+                        gripper_queue.pop(0)
+                        while (robot_event['trajectoryXY_running'] and not robot_event['trajectoryXY_arrived']) or (robot_event['trajectoryZ_running'] and not robot_event['trajectoryZ_arrived']):
+                            time.sleep(0.5)
+                print(command_queue)
                 while len(command_queue):
                     print("GO TO " + str(command_queue[0]))
                     print(command_queue)
                     (y_pos, x_pos, z_pos) = command_queue[0]
                     x_pos = 400 - x_pos
                     y_pos = 400 - y_pos
-                    z_pos += offset
-                    if z_pos > 400: z_pos = 400
-                    if len(command_queue) > 1: zeta = math.atan2(command_queue[1][0]-command_queue[0][0], command_queue[1][1]-command_queue[0][1])
-                    a_pos = 400 + 800/360*(zeta*180/math.pi)
+                    if z_pos > 400: z_pos = 350
+                    if len(command_queue) > 1: zeta = math.atan2(command_queue[1][1]-command_queue[0][1], command_queue[1][0]-command_queue[0][0])
+                    if len(command_queue) != 1: a_pos = 400 + 800/360*(zeta*180/math.pi)
                     x_pos, y_pos, z_pos = int(x_pos), int(y_pos), int(z_pos)
+                    print("Zpos= " + str(z_pos))
                     if robot.x == x_pos and robot.y == y_pos:  # No move in X, Y
                         if robot.z != z_pos or robot.a != a_pos:
                             t = robot.writeTrajectoryZ(z_pos, a_pos)

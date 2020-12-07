@@ -3,8 +3,8 @@
     <type>com.microchip.mplab.nbide.embedded.makeproject</type>
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/make-project/1">
-            <name>UART</name>
-            <creation-uuid>0ad3d990-cee7-4d34-b4a7-2936e900ead3</creation-uuid>
+            <name>UART_DMA_PRINT</name>
+            <creation-uuid>78c53fca-fb77-485f-9d53-2eba222061f5</creation-uuid>
             <make-project-type>0</make-project-type>
             <c-extensions>c</c-extensions>
             <cpp-extensions/>
@@ -14,7 +14,6 @@
             <make-dep-projects/>
             <sourceRootList>
                 <sourceRootElem>.</sourceRootElem>
-                <sourceRootElem>../UART_DMA_PRINT.X</sourceRootElem>
             </sourceRootList>
             <confList>
                 <confElem>

@@ -78,13 +78,15 @@ def findContourCenter(c):
 def generate_trajectory3D(src, waypoints2D, min_height, max_height, gradient_crop_ratio, min_intensity_range, path_cnt_approx): # Use points to sample intensity
     if len(src.shape) == 3: src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
     src = cv2.GaussianBlur(src,(9,9),0)
+    # cv2.imshow("ABC", src)
+    # cv2.waitKey(0)
     waypoints3D = []
     intensity_buffer = []
     for (x, y) in waypoints2D: intensity_buffer.append(255 - src[y][x])
     height_range = max_height - min_height
     hist, _ = np.histogram(intensity_buffer, 256, [0, 256])
     cdf = hist.cumsum()
-    #     print(cdf)
+    # print(cdf)
     cdf_max = cdf[-1]
     cdf_thresh_min = int(cdf_max * (1 - gradient_crop_ratio) / 2)
     cdf_thresh_max = int(cdf_max * (1 + gradient_crop_ratio) / 2)
@@ -103,9 +105,9 @@ def generate_trajectory3D(src, waypoints2D, min_height, max_height, gradient_cro
     waypoints3D_approx = []
     for point_approx in path_cnt_approx:
         best = waypoints3D[0]
-        best_distance = euclidean((point_approx[0][0], point_approx[0][1]), (best[0], best[1]))
+        best_distance = euclidean((point_approx[0][0]/2, point_approx[0][1]/2), (best[0], best[1]))
         for candidate in waypoints3D:
-            distance = euclidean((point_approx[0][0], point_approx[0][1]), (candidate[0], candidate[1]))
+            distance = euclidean((point_approx[0][0]/2, point_approx[0][1]/2), (candidate[0], candidate[1]))
             if distance < best_distance:
                 best_distance = distance
                 best = candidate
@@ -169,7 +171,7 @@ def getPath(path_mask_opening, visualize=False):
     cv2.destroyAllWindows()
     cv2.imwrite("X:/generatePath.png", canvas)
     return path_cnts, path_cnts_approx, canvas
-def getPath3D(src, path_cnts, path_cnts_approx, min_height=100, max_height=200, gradient_crop_ratio=0.9, min_intensity_range=15):
+def getPath3D(src, path_cnts, path_cnts_approx, min_height=100, max_height=200, gradient_crop_ratio=0.8, min_intensity_range=15):
     ## Generate 3D Waypoints from Gradient ##
     waypoints3D_approx_list = []
     for i in range(len(path_cnts)):
@@ -244,7 +246,13 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
             command_list += reversed(waypoints3D_approx_list[0])
             command_list.append((stopCenter[0] / 2, stopCenter[1] / 2, waypoints3D_approx_list[0][0][2]))
             command_list.append((stopCenter[0] / 2, stopCenter[1] / 2, hover_height))
-        return command_list
+        canvas = np.zeros((800, 800, 3))
+        command_double = []
+        for command in command_list[1:-1]:
+            command_double.append((int(command[0]*2), int(command[1]*2), int(command[2]*2)))
+            cv2.putText(canvas, str(int(command[2])), (int(command[0]*2), int(command[1]*2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
+        canvas = implotlineXY(command_double, canvas)
+        return command_list, canvas
     if len(path_cnts) == 2: # Two path -> interpolate 2nd marker
         A, B = path_cnts[0], path_cnts[1]
         best = {'cost':99999999, 'command': None, 'marker_index': None}
@@ -309,5 +317,9 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
                                           (best['command'][i+1][0], best['command'][i+1][1]))
         best['command'].insert(i, (middleMarker[0], middleMarker[1], best['command'][i][2]))
         canvas = np.zeros((800, 800, 3))
-        canvas = implotlineXY(best['command'], canvas)
+        command_double = []
+        for command in best['command'][1:-1]:
+            command_double.append((int(command[0]*2), int(command[1]*2), int(command[2]*2)))
+            cv2.putText(canvas, str(int(command[2])), (int(command[0]*2), int(command[1]*2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
+        canvas = implotlineXY(command_double, canvas)
         return best['command'], canvas

@@ -51,7 +51,7 @@ int state = 0, n = 1;
 float x0,y0, Q_t,Q_dot_t,path_mode,phi;
 
 int numByte;
-uint8_t dataArray[10], stack[40];
+uint8_t dataArray[10], stack[100];
 unsigned int BufferA[10] __attribute__((space(dma)));
 uint8_t stackSize=0, startIndex, packetLength, uart_state = 0, checksum, circular_nf;
 bool circle_running = false, trajectory_running = false, homed = false, circle_start = false;
@@ -92,7 +92,7 @@ int main(void) {
             switch(uart_state){
                 case 0:
                     for(i=0;i<stackSize-1;i++){
-                        if(stack[i]==255 && stack[i+1]==255){
+                        if(stack[i]==255 && stack[i+1]==255){                            
                             startIndex = i;
                             if(stackSize - startIndex < 3){break;} // packetLength doesn't arrived yet
                             uart_state = 1;
@@ -118,6 +118,11 @@ int main(void) {
                     if(stack[startIndex+packetLength+2] == checksum){ // Checksum correct
 //                        printf("Checksum Passed!\n");
                         uart_state = 3;
+                        ack_packet[2] = 3;
+                        ack_packet[3] = 6;
+                        ack_packet[4] = 2;
+                        applyCheckSum(ack_packet, 6);
+                        sendUART(6, ack_packet, 0);
                         break;
                     }
                     else{
@@ -155,6 +160,12 @@ int main(void) {
                             writePosition(256*stack[startIndex+4] + stack[startIndex+5],256*stack[startIndex+6] + stack[startIndex+7]);
                             break;
                         case 4: //Write Trajectory
+                            // ack_packet = {255, 255, 3, 4, 0, 0};
+                            ack_packet[2] = 3;
+                            ack_packet[3] = 4;
+                            ack_packet[4] = 0;
+                            applyCheckSum(ack_packet, 6);
+                            sendUART(6, ack_packet, 0);
                             writeTrajectory(((stack[startIndex+4]==0)?1.0:-1.0)*(((float)stack[startIndex+5])+((float)stack[startIndex+6])/100+((float)stack[startIndex+7])/10000),
                                     ((stack[startIndex+8]==0)?1.0:-1.0)*(((float)stack[startIndex+9])+((float)stack[startIndex+10])/100+((float)stack[startIndex+11])/10000),
                                     cur_pos_x,
@@ -162,12 +173,7 @@ int main(void) {
                                     ((stack[startIndex+12]==0)?1.0:-1.0)*(((float)stack[startIndex+13])+((float)stack[startIndex+14])/100+((float)stack[startIndex+15])/10000),
                                     ((stack[startIndex+16]==0)?1.0:-1.0)*(((float)stack[startIndex+17])+((float)stack[startIndex+18])/100+((float)stack[startIndex+19])/10000),
                                     (((float)stack[startIndex+20])+((float)stack[startIndex+21])/100+((float)stack[startIndex+22])/10000));
-//                            ack_packet = {255, 255, 3, 4, 0, 0};
-//                            ack_packet[2] = 3;
-//                            ack_packet[3] = 4;
-//                            ack_packet[4] = 0;
-//                            applyCheckSum(ack_packet, 6);
-//                            sendUART(6, ack_packet, 0);
+
                             break;
                         case 5: // Home
                             if(stack[startIndex+4]){ // Asked if home was set

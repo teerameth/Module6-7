@@ -4,11 +4,11 @@
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/make-project/1">
             <name>UART_DMA</name>
-            <creation-uuid>633dc739-feab-4437-a28d-10cc4f3adcf4</creation-uuid>
+            <creation-uuid>002b9de2-60ef-4bce-88dc-82a2b84072aa</creation-uuid>
             <make-project-type>0</make-project-type>
             <c-extensions>c</c-extensions>
             <cpp-extensions/>
-            <header-extensions>h</header-extensions>
+            <header-extensions/>
             <asminc-extensions/>
             <sourceEncoding>ISO-8859-1</sourceEncoding>
             <make-dep-projects/>
