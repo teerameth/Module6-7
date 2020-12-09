@@ -45,12 +45,14 @@ void IRAM_ATTR onStepper(){
     theta_dot_t = ((3*c4*t)+c3*2)*t + c2;
     setpoint_z = (theta_t)*sin(gramma);
     vel_z = (theta_dot_t)*sin(gramma);
+    int err_z =(setpoint_z*250/7)-Zaxis.currentPosition();
+    Zaxis.setSpeed( vel_z*250/7+err_z);
     //t_stepACnt++;
   }
-//  else
-//  {
-//    Zaxis.setSpeed(0);
-//  }
+  else if((int)(setpoint_z*250/7)== Zaxis.currentPosition())
+  {
+    Zaxis.setSpeed(0);
+  }
   deltaB = stepBDes - stepBPos;
   if(deltaB){
     if(deltaB > 0){
@@ -64,8 +66,6 @@ void IRAM_ATTR onStepper(){
     digitalWrite(stepPinB, HIGH);
     digitalWrite(stepPinB, LOW);
   }
-  Zaxis.setSpeed( vel_z*250/6);
-  Zaxis.runSpeed();
   t += 0.001;
 }
 
@@ -94,12 +94,14 @@ void setup() {
 }
 void loop() 
 {
+  Zaxis.runSpeed();
+
   c1 = 0;
   c2 = 0;
-  c3 = 0.734;
-  c4 = -0.0489;
-  gramma=0.955;
-  tf = 10;
+  c3 = 5.12;
+  c4 = -0.44;
+  gramma=-1.57;
+  tf = 7.65;
 //
 //    c1 = 0;
 //  c2 = 0;
@@ -115,6 +117,8 @@ void loop()
 //  c4 = -0.0501;
 //  gramma= 1.5;
 //  tf = 20;
+  Serial.print(setpoint_z*250/7);
+  Serial.print(":");
   Serial.println(Zaxis.currentPosition());
   
 }
