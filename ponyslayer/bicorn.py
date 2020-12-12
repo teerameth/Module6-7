@@ -94,7 +94,7 @@ def generate_trajectory3D(src, waypoints2D, min_height, max_height, gradient_cro
     intensity_thresh_min = sorted_intensity[cdf_thresh_min]
     intensity_thresh_max = sorted_intensity[cdf_thresh_max]
     intensity_range = intensity_thresh_max - intensity_thresh_min
-    if intensity_range < min_intensity_range: z_buffer = [-1 for i in range(len(waypoints2D))] # This is not gradient (z=-1 -> Hold height)
+    if intensity_range < min_intensity_range: z_buffer = [max_height for i in range(len(waypoints2D))] # This is not gradient (z=max height)
     else:
         z_buffer = []
         for intensity in intensity_buffer:
@@ -111,7 +111,7 @@ def generate_trajectory3D(src, waypoints2D, min_height, max_height, gradient_cro
             if distance < best_distance:
                 best_distance = distance
                 best = candidate
-        waypoints3D_approx.append((point_approx[0][0]/2, point_approx[0][1]/2, best[2]))
+        waypoints3D_approx.append((point_approx[0][0]/2, point_approx[0][1]/2, round(best[2], 2)))
     return waypoints3D_approx
 def getPathMask(mask, startMask, chessMask):
     path_mask = cv2.bitwise_or(mask, chessMask)
@@ -250,9 +250,9 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
         command_double = []
         for command in command_list[1:-1]:
             command_double.append((int(command[0]*2), int(command[1]*2), int(command[2]*2)))
-            cv2.putText(canvas, str(int(command[2])), (int(command[0]*2), int(command[1]*2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
+            cv2.putText(canvas, str(int(command[2])), (int(command[0]*2), int(command[1]*2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
         canvas = implotlineXY(command_double, canvas)
-        return command_list, canvas
+        return command_list, np.asarray(canvas, dtype=np.uint8)
     if len(path_cnts) == 2: # Two path -> interpolate 2nd marker
         A, B = path_cnts[0], path_cnts[1]
         best = {'cost':99999999, 'command': None, 'marker_index': None}
@@ -320,6 +320,6 @@ def generateCommand(startMask, stopMask, path_cnts, waypoints3D_approx_list, hov
         command_double = []
         for command in best['command'][1:-1]:
             command_double.append((int(command[0]*2), int(command[1]*2), int(command[2]*2)))
-            cv2.putText(canvas, str(int(command[2])), (int(command[0]*2), int(command[1]*2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
+            cv2.putText(canvas, str(int(command[2])), (int(command[0]*2), int(command[1]*2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
         canvas = implotlineXY(command_double, canvas)
-        return best['command'], canvas
+        return best['command'], np.asarray(canvas, dtype=np.uint8)

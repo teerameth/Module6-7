@@ -3,7 +3,7 @@ from unicorn2 import *
 from transform import *
 import bicorn
 import numpy as np
-import BGsub, BGsub_frank, recon_median, frankenstein, DBSCAN, search_chess, search_marker
+import BGsub, BGsub_frank, recon_median, frankenstein, DBSCAN, search_chess, search_marker, colormap
 backlog = 1
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('127.0.0.1', 12345))
@@ -23,7 +23,7 @@ chess_center, start_center = None, None
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 standby_image = imutils.resize(cv2.imread("bicorn.jpg"), height=800)
 use_standby = True
-recon_mode = 6
+recon_mode, segment_mode = 6, 0
 command_queue = []
 z_offset = 60
 packets = []
@@ -65,12 +65,11 @@ class Robot():
         time.sleep(0.1)
         self.x, self.y = 0, 0
     def set_homeZ(self):
-        self.Z = 400
         packet = [0xFF, 0xFF, 3, 0x05, 0]
         apply_checksum(packet)
         self.esp.write(packet)
         time.sleep(0.1)
-        self.z = 0
+        self.z = 400
         self.a = 400
     def readPosition(self):
         packet = [255, 255, 2]
@@ -87,7 +86,8 @@ class Robot():
         print(int(packet[2]) * 256 + int(packet[3]), int(packet[4]) * 255 + int(packet[5]))
         return int(packet[2]) * 256 + int(packet[3]), int(packet[4]) * 255 + int(packet[5])  # X, Y
     def writeTrajectoryXY(self, x1, y1):
-        print("writeTrajectoryXY")
+        print("==================================================================")
+        print("writeTrajectoryXY - X: " + str(x1) + " Y: " +str(y1))
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + ", Y0=" + str(y0))
         c3, c4, theta, gramma, t = self.tj_solve(x1, y1, 5, x0, y0, 20)
@@ -106,16 +106,16 @@ class Robot():
         print("PIC: " + str(packet))
         return t
     def writeTrajectoryZ(self, z1, a1):
-        z1 += z_offset
         if z1 > 400: z1 = 400
-        print("writeTrajectoryZ")
+        print("==================================================================")
+        print("writeTrajectoryZ - Z: " + str(z1))
         ## A ##
         t=0
         packet = [0xFF, 0xFF, 7, 0x03, 0x01, int(a1 / 256), int(a1 % 256), int(t * 1000 / 256), int(t * 1000) % 256]
         apply_checksum(packet)
         self.esp.write(packet)
         x0, y0, x1, y1 = 100, 100, 105, 105
-        z0 = self.Z
+        z0 = self.z
         c3, c4, theta, gramma, t = self.tj_solve(x1, y1, z1, x0, y0, z0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
@@ -129,19 +129,19 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
         print("ESP_Z: " + str(packet))
-        self.Z = z1
+        self.z = z1
         robot_event['trajectoryZ_arrived'] = 0
         robot_event['trajectoryZ_running'] = 1
         time.sleep(0.02)
         return t
     def writeTrajectory(self, x1, y1, z1, a1):  # Ack {255, 255, 3, 4, 1, 0} every move
-        z1 += z_offset
         if z1 > 400: z1 = 400
-        print("writeTrajectory")
+        print("==================================================================")
+        print("writeTrajectory - X: " + str(x1) + " Y: " + str(y1) + str(" Z: ") + str(z1))
         x0, y0 = self.readPosition()
         print("X0=" + str(x0) + ", Y0=" + str(y0) + ", X1=" + str(x1) + ", Y1=" + str(y1))
-        z0 = self.Z
-        self.Z = z1
+        z0 = self.z
+        self.z = z1
         c3, c4, theta, gramma, t = self.tj_solve(x1, y1, z1, x0, y0, z0)
         c3_packet = [0 if c3 > 0 else 1, int(abs(c3)) % 256, int((abs(c3) * 100) % 100), int((abs(c3) * 10000) % 100)]
         c4_packet = [0 if c4 > 0 else 1, int(abs(c4)) % 256, int((abs(c4) * 100) % 100), int((abs(c4) * 10000) % 100)]
@@ -171,20 +171,6 @@ class Robot():
         # responsePacket = self.serialDevice.read(self.serialDevice.inWaiting())  # [0xFF, 0xFF, 3, 0x03, 0] = Acknowledge, [0xFF, 0xFF, 3, 0x03, 1] = Arrived
         # if len(responsePacket) != 4: return False  # Doesn't receive acknowledge
         return t
-    def writeLinearZ(self, t, z1, a1):
-        self.Z = z1
-        ## Z ## {255, 255, 8, 3, 2, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
-        packet = [0xFF, 0xFF, 7, 0x03, 0x02, int(z1 / 256), int(z1 % 256), int(t * 1000 / 256), int(t * 1000) % 256]
-        apply_checksum(packet)
-        print(packet)
-        self.esp.write(packet)
-        time.sleep(0.01)
-        ## A ## {255, 255, 8, 3, 3, high_byte, low_byte, t_high, t_low, checkSum} // t = time in ms.
-        t_esp = t * 0.85
-        packet = [0xFF, 0xFF, 7, 0x03, 0x03, int(a1 / 256), int(a1 % 256), int(t_esp * 1000 / 256), int(t_esp * 1000) % 256]
-        apply_checksum(packet)
-        print(packet)
-        self.esp.write(packet)
     def gripper(self, angle):  # {255, 255, 3, 6, servoPos, checksum} 20=close, 170=open
         packet = [0xFF, 0xFF, 3, 6, angle]
         apply_checksum(packet)
@@ -232,30 +218,6 @@ class Robot():
         print("t = : ", t)
         return c3, c4, theta, gramma, t
 
-    # def tj_solve(self, t, x1, y1, z1, x0, y0, z0):
-    #     # print(t, x1, y1, z1, x0, y0, z0)
-    #     qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
-    #     A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
-    #     B = np.array([[qf], [0]])
-    #     X = np.dot(np.linalg.inv(A), B)
-    #     theta = math.atan2((y1 - y0), (x1 - x0))
-    #     gramma = math.atan2(z1 - z0, math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
-    #     c3 = X[0][0]
-    #     c4 = X[1][0]
-    #     # print("c3 = " + str(c3) + "\nc4 = " + str(c4) + "\ntheta = " + str(theta) + "\ngramma = " + str(gramma))
-    #     return c3, c4, theta, gramma
-    # def tj_solve(self, t, x1, y1, z1, x0, y0, z0):
-    #     # print(t, x1, y1, z1, x0, y0, z0)
-    #     qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
-    #     A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
-    #     B = np.array([[qf], [0]])
-    #     X = np.dot(np.linalg.inv(A), B)
-    #     theta = math.atan2((y1 - y0), (x1 - x0))
-    #     gramma = math.atan2(z1 - z0, math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
-    #     c3 = X[0][0]
-    #     c4 = X[1][0]
-    #     # print("c3 = " + str(c3) + "\nc4 = " + str(c4) + "\ntheta = " + str(theta) + "\ngramma = " + str(gramma))
-    #     return c3, c4, theta, gramma
     def closeXY(self):
         self.serialDevice.close()
     def closeZ(self):
@@ -276,35 +238,34 @@ def loading(status):
     if status == 0: send([3, 1, 0])
     if status == 1: send([3, 1, 1])
 
-
 def robot_reciever():
     global packet_readXY
     while True:
         datas = robot.serialDevice.readline().decode('ASCII')
         if datas != '':
-            print(datas)
-            print("------")
             if 'home' in datas:
                 robot_event['homedXY'] = 1
-                send([3, 1, 2])  # Deactivate Load Animation
-
+                print("XY: homed")
+                if robot_event['trajectoryZ_arrived'] == 1:
+                    send([3, 1, 2])  # Deactivate Load Animation
+                    robot_event['trajectoryZ_arrived'] = 0
+                else: robot_event['trajectoryXY_arrived'] = 1
             packet = datas.split(',')
-            print(packet)
-            print("Packet:" + str(packet))
             if packet[0] == '6' and packet[1] == '2': # Read position data
                 packet_readXY = packet.copy()
                 robot_event['readedXY'] = 1
             if packet[0] == '3' and packet[1] == '7' and packet[2] == '0': # Start Circle
                 event['circular_running'] = True
-                print("Stop Circular")
+                print("Start Circular")
             if packet[0] == '3' and packet[1] == '7' and packet[2] == '1': # Stop Circle
                 event['circular_running'] = False
                 print("Stop Circular")
             if packet[0] == '3' and packet[1] == '4' and packet[2] == '1':
                 robot_event['trajectoryXY_arrived'] = 1
                 robot_event['trajectoryXY_running'] = 0
-                print("trajectoryXY_arrived")
+                print("XY: trajectory arrived")
                 send([3, 1, 2])  # Deactivate Load Animation
+                robot_event['trajectoryXY_arrived'] = 0
 
         responsePacket = robot.esp.read(robot.esp.inWaiting()) # ESP32
         if responsePacket:
@@ -313,11 +274,15 @@ def robot_reciever():
             if packet[2] == 3 and packet[3] == 5 and packet[4] == 1:
                 robot_event['homedZ'] = 1
                 print("Z: homed")
-                send([3, 1, 2])  # Deactivate Load Animation
+                if robot_event['trajectoryXY_arrived']:
+                    send([3, 1, 2])  # Deactivate Load Animation
+                    robot_event['trajectoryXY_arrived'] = 0
+                else: robot_event['trajectoryZ_arrived'] = 1
             if packet[2] == 3 and packet[3] == 5 and packet[4] == 2:
                 robot_event['trajectoryZ_arrived'] = 1
                 robot_event['trajectoryZ_running'] = 0
-                print("trajectoryZ_arrived")
+                print("Z: trajectory arrived")
+
         time.sleep(0.2)
         # HOME          [0xFF, 0xFF, 3, 5, 0x01, checksum]
         # TRAJECTORY    [0xFF, 0xFF, 3, 4, 0x01, checksum]
@@ -326,11 +291,11 @@ def robot_reciever():
 ###############
 def recieving():
     global state, previous_state, run
-    global event, recon_mode, use_standby
+    global event, recon_mode, segment_mode, use_standby
     while True:
         data = client.recv(64)
         if not data: continue # Pass if there is no data
-        print(data)
+        # print(data) # RAW bytes from Unity (send via TCP)
         if data[0] == 0: # Empty
             pass
         if data[0] == 1: # Change state
@@ -412,7 +377,9 @@ def recieving():
                 if data[2] == 3:
                     event['recon'] = 1 # Reconstruction
                     recon_mode = data[3] # Get reconstruction mode
-                if data[2] == 4: event['segment'] = 1 # Segmentation
+                if data[2] == 4:
+                    event['segment'] = 1 # Segmentation
+                    segment_mode = data[4]  # Get segmentation mode
                 if data[2] == 5: event['locateMarker'] = 1 # Locate Marker
                 if data[2] == 6: event['generatePath'] = 1 # Generate Path
                 if data[2] == 7: event['visualize'] = 1 # Visualize
@@ -559,7 +526,16 @@ def mainThread():
                 print("Start segmentation")
                 send([3, 1, 1])  # Activate Load Animation
                 captured_image['reconstructed'] = cv2.imread("X:/final.png")
-                captured_image['segment'] = DBSCAN.cluster(captured_image['reconstructed'], esp_value=0.7, scale=2, N=1000)
+                if segment_mode == 0: # Auto clustering for creating mask and guide grabcut
+                    print("Mode 1")
+                    captured_image['segment'] = DBSCAN.cluster_grap(captured_image['reconstructed'], esp_value=0.7, N=1000, visualize=False)
+                if segment_mode == 1: # Grabcut using manual guide
+                    print("Mode 2")
+                    pass
+                if segment_mode == 2: # Auto clustering by multi iteration
+                    print("Mode 3")
+                    captured_image['segment'] = DBSCAN.cluster(captured_image['reconstructed'], esp_value=0.7, scale=2, N=1000)
+
                 cv2.imwrite("X:/segment.png", captured_image['segment'])
                 display_image = cv2.cvtColor(captured_image['segment'], cv2.COLOR_GRAY2BGR)
 
@@ -614,6 +590,8 @@ def mainThread():
                 cast.send('3', canvas)
                 waypoints3D_approx_list = bicorn.getPath3D(src=captured_image['reconstructed'], path_cnts=path_cnts, path_cnts_approx=path_cnts_approx)
                 command_queue, canvas = bicorn.generateCommand(captured_image['startMask'], captured_image['chessMask'], path_cnts, waypoints3D_approx_list)
+                colorMap = colormap.get_colormap()
+                canvas = cv2.bitwise_or(canvas, colorMap)
                 cast.send('3', canvas)
                 cv2.imwrite("X:/generatePath.png", canvas)
                 print(command_queue)
@@ -640,7 +618,7 @@ def mainThread():
                 robot_event['trajectoryZ_arrived'] = 1
                 robot.gripper(170)
                 ### Gripper on duty ###
-                gripper_queue = [(67, 376, 300, 400), (67, 376, 62, 400), -1, (67, 376, 75, 400), (67, 365, 75, 400), (67, 365, 290, 400), (67, 200, 290, 400)]
+                gripper_queue = [(67, 376, 200, 400), (67, 376, 62, 400), -1, (67, 376, 75, 400), (67, 365, 75, 400), (67, 365, 290, 400), (67, 200, 290, 400)]
                 while len(gripper_queue) > 0:
                     if gripper_queue[0] == -1:
                         gripper_queue.pop(0)
@@ -648,6 +626,7 @@ def mainThread():
                         time.sleep(1)
                     else:
                         (x_pos, y_pos, z_pos, a_pos) = gripper_queue[0]
+                        z_pos += z_offset
                         if robot.x == x_pos and robot.y == y_pos:  # No move in X, Y
                             if robot.z != z_pos or robot.a != a_pos:
                                 t = robot.writeTrajectoryZ(z_pos, a_pos)
@@ -663,15 +642,14 @@ def mainThread():
                 print(command_queue)
                 while len(command_queue):
                     print("GO TO " + str(command_queue[0]))
-                    print(command_queue)
                     (y_pos, x_pos, z_pos) = command_queue[0]
                     x_pos = 400 - x_pos
                     y_pos = 400 - y_pos
-                    if z_pos > 400: z_pos = 350
+                    z_pos += z_offset
+                    if z_pos > 350: z_pos = 350
                     if len(command_queue) > 1: zeta = math.atan2(command_queue[1][1]-command_queue[0][1], command_queue[1][0]-command_queue[0][0])
                     if len(command_queue) != 1: a_pos = 400 + 800/360*(zeta*180/math.pi)
                     x_pos, y_pos, z_pos = int(x_pos), int(y_pos), int(z_pos)
-                    print("Zpos= " + str(z_pos))
                     if robot.x == x_pos and robot.y == y_pos:  # No move in X, Y
                         if robot.z != z_pos or robot.a != a_pos:
                             t = robot.writeTrajectoryZ(z_pos, a_pos)
@@ -688,11 +666,19 @@ def mainThread():
                 event['visualize'] = 0 # Clear event flag
             if use_standby:
                 use_standby = False
-                if captured_image['visualize'] is not None:
-                    cast.send('3', captured_image['visualize'])
+                captured_image['generatePath'] = cv2.imread("X:/generatePath.png")
+                if captured_image['generatePath'] is not None:
+                    alpha = 0.5
+                    canvas = captured_image['generatePath'].copy()
+                    captured_image['reconstructed'] = cv2.imread("X:/final.png")
+
+                    original_mask = captured_image['reconstructed']
+
+                    cv2.addWeighted(original_mask, alpha, canvas, 1 - alpha, 0, canvas)
+                    cast.send('3', canvas)
                 else:
                     standby_image1 = standby_image.copy()
-                    cv2.putText(standby_image1, "Visualize", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
+                    cv2.putText(standby_image1, "Generate Path", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255))
                     cast.send('3', standby_image1)
 
 if __name__ == "__main__":

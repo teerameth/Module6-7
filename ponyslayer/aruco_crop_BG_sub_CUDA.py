@@ -3,10 +3,7 @@ import numpy as np
 import math
 from transform import four_point_transform, order_points
 dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
-# markerImage = np.zeros((200, 200), dtype=np.uint8)
-# markerImage = cv2.aruco.drawMarker(dictionary, 38, 200, markerImage, 1)
-# cv2.imshow("marker33", markerImage)
-# cv2.waitKey(0)
+
 
 # cameraMatrix = np.array([[1438.4337197221366, 0.0, 934.4226787746103], [0.0, 1437.7513778197347, 557.7771398018671], [0.0, 0.0, 1.0]], np.float32) # Module
 cameraMatrix = np.array([[1395.3709390074625, 0.0, 984.6248356317226], [0.0, 1396.2122002126725, 534.9517311724618], [0.0, 0.0, 1.0]], np.float32) # Humanoid
@@ -17,15 +14,15 @@ dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449
 rvec = np.array([0.0, 0.0, 0.0]) # float only
 tvec = np.array([0.0, 0.0, 0.0]) # float only
 
-cap = cv2.VideoCapture(cv2.CAP_DSHOW)
-codec = 0x47504A4D  # MJPG
-cap.set(cv2.CAP_PROP_FPS, 30.0)
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
-cap.set(3, 1920)
-cap.set(4, 1080)
+# cap = cv2.VideoCapture(cv2.CAP_DSHOW)
+# codec = 0x47504A4D  # MJPG
+# cap.set(cv2.CAP_PROP_FPS, 30.0)
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('m','j','p','g'))
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+# cap.set(3, 1920)
+# cap.set(4, 1080)
 
-# cap = cv2.VideoCapture("../O.mp4")
+cap = cv2.VideoCapture("X:/out.avi")
 cuda_stream = cv2.cuda_Stream()
 parameters =  cv2.aruco.DetectorParameters_create()
 # parameters(doCornerRefinement=True)

@@ -5,6 +5,57 @@ from sklearn.preprocessing import StandardScaler
 import cv2
 import random
 import imutils
+def cluster_grap(frame, visualize = False, esp_value=0.7, min_samples=500, N=1000):
+    original_height = frame.shape[0]
+    HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    H, S, V = cv2.split(HSV)
+    X_base = []
+    index_list_base = []
+    for i in range(N):
+        y = random.randrange(0, H.shape[0] - 1)
+        x = random.randrange(0, H.shape[1] - 1)
+        point = (x, y)
+        X_base.append((H[point], S[point], V[point]))
+        index_list_base.append(point)
+
+    X = StandardScaler().fit_transform(X_base)
+
+    # Compute DBSCAN
+    db = DBSCAN(eps=esp_value, min_samples=min_samples).fit(X)  # esp=0.3
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_
+
+    ### For grabcut ###
+    mask = np.ones(frame.shape[:2], np.uint8) * 2
+    bgdModel = np.zeros((1, 65), np.float64)
+    fgdModel = np.zeros((1, 65), np.float64)
+
+    canvas = np.zeros((H.shape[0], H.shape[1], 3)) # Visualize canvas
+    for i in range(len(index_list_base)):
+        point = (index_list_base[i][1], index_list_base[i][0])
+        if labels[i] == -1:
+            cv2.circle(canvas, point, 2, (0, 0, 255), -1)
+            cv2.circle(mask, point, 2, 0, -1)
+        if labels[i] == 0:
+            cv2.circle(canvas, point, 2, (0, 255, 0), -1)
+            cv2.circle(mask, point, 2, 1, -1)
+        else:
+            cv2.circle(canvas, point, 2, (255, 0, 0), -1)
+
+    mask, bgdModel, fgdModel = cv2.grabCut(frame, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
+    mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+    if visualize:
+        cv2.imshow("src", frame)
+        cv2.imshow("Clustered Sample", canvas)
+        cv2.imshow("Maks", mask2 * 255)
+        cv2.waitKey(0)
+    mask = np.asarray(mask2*255, dtype=np.uint8)
+    ## Remove outer border ##
+    (h, w) = mask.shape
+    mask_border = cv2.rectangle(np.ones_like(mask)*255, (int(0.1 * w), int(0.1 * h)),
+                                (int(0.9 * w), int(0.9 * h)), 0, -1)
+    return cv2.bitwise_or(mask_border, mask)
 
 def cluster(frame, visualize = False, esp_value=0.7, min_samples=500, N=1000, scale = 2):
     original_height = frame.shape[0]
@@ -56,33 +107,6 @@ def cluster(frame, visualize = False, esp_value=0.7, min_samples=500, N=1000, sc
             cv2.imshow("B", mask)
             cv2.waitKey(1)
 
-    # if visualize:
-    #     # Number of clusters in labels, ignoring noise if present.
-    #     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-    #     n_noise_ = list(labels).count(-1)
-    #     print('Estimated number of clusters: %d' % n_clusters_)
-    #     print('Estimated number of noise points: %d' % n_noise_)
-    #     # print("Silhouette Coefficient: %0.3f" % metrics.silhouette_score(X, labels))
-    #     # #############################################################################
-    #     # Plot result
-    #     import matplotlib.pyplot as plt
-    #     # Black removed and is used for noise instead.
-    #     unique_labels = set(labels)
-    #     colors = [plt.cm.Spectral(each)
-    #               for each in np.linspace(0, 1, len(unique_labels))]
-    #     for k, col in zip(unique_labels, colors):
-    #         if k == -1:
-    #             # Black used for noise.
-    #             col = [0, 0, 0, 1]
-    #         class_member_mask = (labels == k)
-    #         xy = X[class_member_mask & core_samples_mask]
-    #         plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-    #                  markeredgecolor='k', markersize=14)
-    #         xy = X[class_member_mask & ~core_samples_mask]
-    #         plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-    #                  markeredgecolor='k', markersize=6)
-    #     plt.title('Estimated number of clusters: %d' % n_clusters_)
-    #     plt.show()
     border_mask = np.ones_like(mask)*255
     ratio = 0.05
     cv2.rectangle(border_mask, (int(H.shape[0]*ratio), int(H.shape[1]*ratio)), (int(H.shape[0]*(1-ratio)), int(H.shape[0]*(1-ratio))), 0, -1)
@@ -95,10 +119,11 @@ def cluster(frame, visualize = False, esp_value=0.7, min_samples=500, N=1000, sc
 
 if __name__ == "__main__":
     import time
-    frame = cv2.imread("X:/final/BGsub Stochastic Frank.png")
-    frame = cv2.imread("../img/Real7.png")
+    frame = cv2.imread("X:/final.png")
+    # frame = cv2.imread("../img/Real7.png")
     start = time.time()
-    mask = cluster(frame, esp_value=0.7,  scale=2, N=1000, visualize=True)
+    # mask = cluster(frame, esp_value=0.7,  scale=2, N=1000, visualize=True)
+    mask = cluster_grap(frame, esp_value=0.7, N=1000, visualize=True)
     t = str(int(time.time()-start))
     print("Time usage: " + t + "sec.")
     cv2.imshow("Mask", mask)
