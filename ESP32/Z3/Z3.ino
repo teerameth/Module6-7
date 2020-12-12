@@ -2,8 +2,8 @@
 #include <ArduinoOTA.h>
 #include <ESP32Servo.h>
 #include <AccelStepper.h>
-#define STEP_PER_ROUND 400
-#define B_zero (int)(STEP_PER_ROUND/2)
+#define STEP_PER_ROUND 800
+#define B_zero STEP_PER_ROUND*40+(int)(STEP_PER_ROUND/2)
 #define motorInterfaceType 1
 BluetoothSerial SerialBT;
 hw_timer_t * timer = NULL;
@@ -18,7 +18,7 @@ const int limitSwitchPin = 13; // Homing switch
 float pulseDelay; // 1000 for 28byj-48, 500 for NEMA-17
 bool led_state = false;
 int gripper_pos = 0;
-int stepAPos = 0, stepBPos = B_zero, stepADes = 0, stepBDes = 0;
+int stepAPos = 0, stepBPos = B_zero, stepADes = 0, stepBDes = B_zero;
 Servo gripper_servo;
 AccelStepper Zaxis(1, stepPinA, dirPinA); // pin 5 = step, pin 8 = direction
 

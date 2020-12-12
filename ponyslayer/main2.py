@@ -29,6 +29,7 @@ z_offset = 60
 packets = []
 packets_esp = []
 packet_readXY = []
+STEP_PER_ROUND = 800
 def apply_checksum(l):
     checkSumOrdList = l[2:]
     checkSumOrdListSum = sum(checkSumOrdList)
@@ -70,7 +71,7 @@ class Robot():
         self.esp.write(packet)
         time.sleep(0.1)
         self.z = 400
-        self.a = 400
+        self.a = int(STEP_PER_ROUND*40 + (STEP_PER_ROUND/2))
     def readPosition(self):
         packet = [255, 255, 2]
         print("Reading")
@@ -618,7 +619,7 @@ def mainThread():
                 robot_event['trajectoryZ_arrived'] = 1
                 robot.gripper(170)
                 ### Gripper on duty ###
-                gripper_queue = [(67, 376, 200, 400), (67, 376, 62, 400), -1, (67, 376, 75, 400), (67, 365, 75, 400), (67, 365, 290, 400), (67, 200, 290, 400)]
+                gripper_queue = [(67, 376, 200, robot.a), (67, 376, 62, robot.a), -1, (67, 376, 75, robot.a), (67, 365, 75, robot.a), (67, 365, 290, robot.a)] # (67, 200, 290, 400)
                 while len(gripper_queue) > 0:
                     if gripper_queue[0] == -1:
                         gripper_queue.pop(0)
@@ -640,6 +641,7 @@ def mainThread():
                         while (robot_event['trajectoryXY_running'] and not robot_event['trajectoryXY_arrived']) or (robot_event['trajectoryZ_running'] and not robot_event['trajectoryZ_arrived']):
                             time.sleep(0.5)
                 print(command_queue)
+                command_queue_bin = []
                 while len(command_queue):
                     print("GO TO " + str(command_queue[0]))
                     (y_pos, x_pos, z_pos) = command_queue[0]
@@ -647,8 +649,23 @@ def mainThread():
                     y_pos = 400 - y_pos
                     z_pos += z_offset
                     if z_pos > 350: z_pos = 350
-                    if len(command_queue) > 1: zeta = math.atan2(command_queue[1][1]-command_queue[0][1], command_queue[1][0]-command_queue[0][0])
-                    if len(command_queue) != 1: a_pos = 400 + 800/360*(zeta*180/math.pi)
+                    # Find new angle
+                    if len(command_queue) > 1 and len(command_queue_bin):
+                        zeta = math.atan2(command_queue[0][1]-command_queue_bin[-1][1], command_queue[0][0]-command_queue_bin[-1][0])
+                        # Find present angle & delta angle
+                        zeta_now = (robot.a%800) * (math.pi/400)
+                        if abs(zeta - zeta_now) <= math.pi:
+                            zeta_delta = zeta - zeta_now
+                        else: # Try to use shortest way
+                            if zeta - zeta_now > 0:
+                                zeta_delta = (zeta - zeta_now) - math.pi
+                            else: zeta_delta = (zeta - zeta_now) + math.pi
+
+                        a_delta = int(zeta_delta * (400/math.pi))
+                        a_pos = robot.a + a_delta
+                    else: a_pos = robot.a
+                    while a_pos < 0: a_pos += 800 # Avoid alpha < 0 (not supported in protocol)
+                    print("Alpha: " + str(a_pos))
                     x_pos, y_pos, z_pos = int(x_pos), int(y_pos), int(z_pos)
                     if robot.x == x_pos and robot.y == y_pos:  # No move in X, Y
                         if robot.z != z_pos or robot.a != a_pos:
@@ -659,9 +676,11 @@ def mainThread():
                         else:
                             t = robot.writeTrajectoryXY(x_pos, y_pos)
                     robot.x, robot.y, robot.z, robot.a = x_pos, y_pos, z_pos, a_pos
+                    command_queue_bin.append(command_queue[0])
                     command_queue.pop(0)
                     while (robot_event['trajectoryXY_running'] and not robot_event['trajectoryXY_arrived']) or (robot_event['trajectoryZ_running'] and not robot_event['trajectoryZ_arrived']):
                         time.sleep(1)
+                command_queue = command_queue_bin.copy()
                 send([3, 1, 0])  # Deactivate Load Animation
                 event['visualize'] = 0 # Clear event flag
             if use_standby:
