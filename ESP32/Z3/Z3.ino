@@ -24,7 +24,7 @@ AccelStepper Zaxis(1, stepPinA, dirPinA); // pin 5 = step, pin 8 = direction
 
 volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
 double c1 = 0, c2 = 0, c3, c4, gramma;
-volatile double theta_t, theta_dot_t, setpoint_z, vel_z, t, tf, z0;
+volatile double theta_t, theta_dot_t, setpoint_z=400, vel_z, t, tf, z0=400;
 int reportCnt = 0;
 int stepPin, dirPin, delta;
 int deltaA, deltaB;
@@ -58,9 +58,6 @@ void IRAM_ATTR onStepper() {
       ack_packet[5] = 245; // checksum
       SerialBT.write(ack_packet, 6);
       tj_running = false;
-    }
-    if ((int)(setpoint_z * 250 / 7) == Zaxis.currentPosition())
-    {
       Zaxis.setSpeed(0);
       z0 =  Zaxis.currentPosition() * 7 / 250;
     }
@@ -114,6 +111,9 @@ void loop() {
     reportCnt = 0;
     digitalWrite(2, led_state);
     led_state = !led_state;
+    Serial.printf("Zaxis currentPos%d\n", int(Zaxis.currentPosition() * 7 / 250));
+    Serial.printf("SetpointZ: %d\n", (int)setpoint_z);
+    Serial.printf("c3: %f, c4: %f, t: %f, gamma: %f, z0: %d\n", c3, c4, t, gramma, (int)z0);
     //    Serial.printf("delta %d\t:\t%f\n", delta,setpoint_z);
     //    Serial.printf("tA_left: %d, tB_left: %d\n", tA_left, tB_left);
     //    Serial.printf("Vel_Z = %f, t = %f, tf=%f\n", vel_z, t, tf);
@@ -254,12 +254,12 @@ void setZero() {
   while (digitalRead(limitSwitchPin) == 0) {
     digitalWrite(stepPinA, HIGH); digitalWrite(stepPinA, LOW); delayMicroseconds(1000);
   }
-  //Zaxis.setCurrentPosition(400*250/7);
   // Reset remembered position
   stepAPos = 0;
   stepBPos = B_zero;
   stepADes = 0;
   stepBDes = B_zero;
+  Zaxis.setCurrentPosition(14286);
   Serial.printf("Homed!\n");
   ack_packet[2] = 3;
   ack_packet[3] = 5;

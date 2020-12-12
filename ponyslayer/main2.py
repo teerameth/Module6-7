@@ -619,7 +619,7 @@ def mainThread():
                 robot_event['trajectoryZ_arrived'] = 1
                 robot.gripper(170)
                 ### Gripper on duty ###
-                gripper_queue = [(67, 376, 200, robot.a), (67, 376, 62, robot.a), -1, (67, 376, 75, robot.a), (67, 365, 75, robot.a), (67, 365, 290, robot.a)] # (67, 200, 290, 400)
+                gripper_queue = [(67, 376, 200, robot.a), (67, 376, 62, robot.a), -1, (67, 376, 80, robot.a), (67, 365, 80, robot.a), (67, 365, 290, robot.a)] # (67, 200, 290, 400)
                 while len(gripper_queue) > 0:
                     if gripper_queue[0] == -1:
                         gripper_queue.pop(0)
