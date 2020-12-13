@@ -25,6 +25,7 @@ AccelStepper Zaxis(1, stepPinA, dirPinA); // pin 5 = step, pin 8 = direction
 volatile long unsigned int t_stepA, t_stepB, t_stepACnt, t_stepBCnt, tA_left, tB_left;
 double c1 = 0, c2 = 0, c3, c4, gramma;
 volatile double theta_t, theta_dot_t, setpoint_z=400, vel_z, t, tf, z0=400;
+volatile bool alpha_divider;
 int reportCnt = 0;
 int stepPin, dirPin, delta;
 int deltaA, deltaB;
@@ -63,21 +64,25 @@ void IRAM_ATTR onStepper() {
     }
   }
 
-  deltaB = stepBDes - stepBPos;
-  if (deltaB) {
-    if (deltaB > 0) {
-      digitalWrite(dirPinB, LOW);
-      stepBPos++;
+  if (alpha_divider){
+      deltaB = stepBDes - stepBPos;
+    if (deltaB) {
+      if (deltaB > 0) {
+        digitalWrite(dirPinB, LOW);
+        stepBPos++;
+      }
+      else {
+        digitalWrite(dirPinB, HIGH);
+        stepBPos--;
+      }
+      digitalWrite(stepPinB, HIGH);
+      digitalWrite(stepPinB, LOW);
     }
-    else {
-      digitalWrite(dirPinB, HIGH);
-      stepBPos--;
-    }
-    digitalWrite(stepPinB, HIGH);
-    digitalWrite(stepPinB, LOW);
   }
+  
   Zaxis.runSpeed();
   t += 0.001;
+  alpha_divider = !alpha_divider;
 }
 
 void setup() {
@@ -260,6 +265,7 @@ void setZero() {
   stepADes = 0;
   stepBDes = B_zero;
   Zaxis.setCurrentPosition(14286);
+  z0 =  Zaxis.currentPosition() * 7 / 250;
   Serial.printf("Homed!\n");
   ack_packet[2] = 3;
   ack_packet[3] = 5;

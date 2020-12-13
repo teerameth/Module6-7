@@ -177,6 +177,9 @@ class Robot():
         apply_checksum(packet)
         self.esp.write(packet)
     def circular_motion(self, n):  # Ack {255, 255, 3, 4, 1, 0} every move
+        self.writeTrajectoryXY(10, 150)
+        while (robot_event['trajectoryXY_running'] and not robot_event['trajectoryXY_arrived']):
+            time.sleep(1.2)
         packet = [255, 255, 7, 0, n]
         while len(packet) != 30: packet.append(0)
         self.serialDevice.write(packet)
@@ -195,7 +198,7 @@ class Robot():
         c4 = 0
         theta = 0
         gramma = 0
-        while abs(vel_x) > vel_x_max or abs(vel_y) > vel_y_max or abs(vel_z) > vel_z_max:
+        while abs(vel_x) > vel_x_max or abs(vel_y) > vel_y_max or abs(vel_z) > vel_z_max or t < 1.2:
             qf = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
             A = np.array([[t ** 2, t ** 3], [2 * t, 3 * (t ** 2)]])
             B = np.array([[qf], [0]])
@@ -529,7 +532,7 @@ def mainThread():
                 captured_image['reconstructed'] = cv2.imread("X:/final.png")
                 if segment_mode == 0: # Auto clustering for creating mask and guide grabcut
                     print("Mode 1")
-                    captured_image['segment'] = DBSCAN.cluster_grap(captured_image['reconstructed'], esp_value=0.7, N=1000, visualize=False)
+                    captured_image['segment'] = DBSCAN.cluster_grap(captured_image['reconstructed'], esp_value=0.7, min_samples=300, N=1000, visualize=False)
                 if segment_mode == 1: # Grabcut using manual guide
                     print("Mode 2")
                     pass
@@ -619,7 +622,7 @@ def mainThread():
                 robot_event['trajectoryZ_arrived'] = 1
                 robot.gripper(170)
                 ### Gripper on duty ###
-                gripper_queue = [(67, 376, 200, robot.a), (67, 376, 62, robot.a), -1, (67, 376, 80, robot.a), (67, 365, 80, robot.a), (67, 365, 290, robot.a)] # (67, 200, 290, 400)
+                gripper_queue = [(69, 376, 200, robot.a), (69, 376, 65, robot.a), -1, (69, 376, 80, robot.a), (69, 365, 80, robot.a), (69, 365, 290, robot.a)] # (67, 200, 290, 400)
                 while len(gripper_queue) > 0:
                     if gripper_queue[0] == -1:
                         gripper_queue.pop(0)
@@ -641,12 +644,22 @@ def mainThread():
                         while (robot_event['trajectoryXY_running'] and not robot_event['trajectoryXY_arrived']) or (robot_event['trajectoryZ_running'] and not robot_event['trajectoryZ_arrived']):
                             time.sleep(0.5)
                 print(command_queue)
+                # command_queue = [(335.0, 65.0, 400), (335.0, 65.0, 200), (330.5, 145.0, 200), (327.5, 333.5, 100), (135.0, 334.5, 100), (60.04003700277521, 334.88940240518036, 100), (61.0, 300.5, 100), (63.5, 92.0, 200), (93.5, 101.5, 200), (170.0, 176.0, 200), (220.5, 223.0, 200), (220.5, 223.0, 400)]
                 command_queue_bin = []
+                translation = (+5, -5) # Correction of position
+                trans_coff = 0.02
+
                 while len(command_queue):
                     print("GO TO " + str(command_queue[0]))
                     (y_pos, x_pos, z_pos) = command_queue[0]
                     x_pos = 400 - x_pos
                     y_pos = 400 - y_pos
+                    x_pos -= trans_coff * x_pos
+                    y_pos -= trans_coff * y_pos
+                    if x_pos < 0: x_pos = 0
+                    if x_pos >= 400: x_pos = 399
+                    if y_pos < 0: y_pos = 0
+                    if y_pos >= 400: y_pos = 399
                     z_pos += z_offset
                     if z_pos > 350: z_pos = 350
                     # Find new angle
@@ -660,7 +673,9 @@ def mainThread():
                             if zeta - zeta_now > 0:
                                 zeta_delta = (zeta - zeta_now) - math.pi
                             else: zeta_delta = (zeta - zeta_now) + math.pi
-
+                        if zeta_delta < -math.pi/2: zeta_delta = math.pi+zeta_delta
+                        if zeta_delta > math.pi/2: zeta_delta = zeta_delta-math.pi
+                        print("Zeta delta: " + str(zeta_delta))
                         a_delta = int(zeta_delta * (400/math.pi))
                         a_pos = robot.a + a_delta
                     else: a_pos = robot.a

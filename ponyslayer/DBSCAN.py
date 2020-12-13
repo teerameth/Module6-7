@@ -42,12 +42,13 @@ def cluster_grap(frame, visualize = False, esp_value=0.7, min_samples=500, N=100
             cv2.circle(mask, point, 2, 1, -1)
         else:
             cv2.circle(canvas, point, 2, (255, 0, 0), -1)
-
-    mask, bgdModel, fgdModel = cv2.grabCut(frame, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
-    mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
     if visualize:
         cv2.imshow("src", frame)
         cv2.imshow("Clustered Sample", canvas)
+        cv2.waitKey(0)
+    mask, bgdModel, fgdModel = cv2.grabCut(frame, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
+    mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+    if visualize:
         cv2.imshow("Maks", mask2 * 255)
         cv2.waitKey(0)
     mask = np.asarray(mask2*255, dtype=np.uint8)
