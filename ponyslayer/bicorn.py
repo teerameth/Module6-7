@@ -160,6 +160,18 @@ def getPath(path_mask_opening, visualize=False):
         points = sortPoint(points, start=end_of_line_points[0])
         points_cnt = points.reshape((points.shape[0], 1,points.shape[1]))
         poly_points = cv2.approxPolyDP(points_cnt, 0.02 * path_mask_opening.shape[0], False)  # approximate polygon
+        extended_length = 30
+        if len(poly_points) > 1:
+            first_interpolate = [poly_points[0][0][0] - poly_points[1][0][0], poly_points[0][0][1] - poly_points[1][0][1]]
+            last_interpolate = [poly_points[-1][0][0] - poly_points[-2][0][0], poly_points[0][0][1] - poly_points[1][0][1]]
+            first_interpolate_size = sqrt(first_interpolate[0]**2 + first_interpolate[1]**2)
+            last_interpolate_size = sqrt(last_interpolate[0]**2 + last_interpolate[1]**2)
+            first_interpolate[0], first_interpolate[1] = first_interpolate[0]/first_interpolate_size*extended_length, first_interpolate[1]/first_interpolate_size*extended_length
+            last_interpolate[0], last_interpolate[1] = last_interpolate[0]/last_interpolate_size*extended_length, last_interpolate[1]/last_interpolate_size*extended_length
+            poly_points[0][0][0] += first_interpolate[0]
+            poly_points[0][0][1] += first_interpolate[1]
+            poly_points[-1][0][0] += last_interpolate[0]
+            poly_points[-1][0][1] += last_interpolate[0]
         canvas = implotlineXY(points, canvas)
         if visualize:
             # cv2.imshow("END OF LINES", cv2.dilate(end_of_line, np.ones((3, 3)), iterations=10))

@@ -337,8 +337,11 @@ def recieving():
                     send([3, 1, 3]) # Activate Load Animation
                     robot.set_homeZ()
                     # robot.set_homeXY()
-                    if event['homeXY'] == 0: robot.set_homeXY()
-                    else: robot.writeTrajectoryXY(10, 10)
+                    # if event['homeXY'] == 0: robot.set_homeXY()
+                    # else: robot.writeTrajectoryXY(10, 10)
+                    robot.serialDevice.close()
+                    robot.connectXY()
+                    robot.set_homeXY()
                     event['home'] = 1
                     event['homeXY'] = 1
                     event['homeZ'] = 1
@@ -346,8 +349,11 @@ def recieving():
                 if data[2] == 1: # Home XY
                     send([3, 1, 3]) # Activate Load Animation
                     if event['connectXY'] == 0: print('Not Connected')
-                    if event['homeXY'] == 0: robot.set_homeXY()
-                    else: robot.writeTrajectoryXY(10, 10)
+                    # if event['homeXY'] == 0: robot.set_homeXY()
+                    # else: robot.writeTrajectoryXY(10, 10)
+                    robot.serialDevice.close()
+                    robot.connectXY()
+                    robot.set_homeXY()
                     event['homeXY'] = 1
                 if data[2] == 2: # Home Z
                     send([3, 1, 3]) # Activate Load Animation
@@ -648,7 +654,7 @@ def mainThread():
                 command_queue_bin = []
                 translation = (+5, -5) # Correction of position
                 trans_coff = 0.02
-
+                counter = 0
                 while len(command_queue):
                     print("GO TO " + str(command_queue[0]))
                     (y_pos, x_pos, z_pos) = command_queue[0]
@@ -660,8 +666,13 @@ def mainThread():
                     if x_pos >= 400: x_pos = 399
                     if y_pos < 0: y_pos = 0
                     if y_pos >= 400: y_pos = 399
+                    # Height thresholding
+                    if counter:
+                        z_pos = 200 if z_pos>=150 else 100
+                    counter += 1
                     z_pos += z_offset
                     if z_pos > 350: z_pos = 350
+
                     # Find new angle
                     if len(command_queue) > 1 and len(command_queue_bin):
                         zeta = math.atan2(command_queue[0][1]-command_queue_bin[-1][1], command_queue[0][0]-command_queue_bin[-1][0])
