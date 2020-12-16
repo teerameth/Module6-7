@@ -20,12 +20,13 @@ def apply_three(imageA, maskA, imageB, maskB, imageC, maskC):
     AB = apply_pair(imageA, maskA, imageB, maskB)
     AC = apply_pair(imageA, maskA, imageC, maskC)
     BC = apply_pair(imageB, maskB, imageC, maskC)
+    # cv2.imwrite("X:/B.png", np.hstack([AB, BC, AC]))
     A = cv2.bitwise_or(cv2.bitwise_and(AB, cv2.bitwise_not(BC)),  # A = AB & !BC
                        cv2.bitwise_and(AC, cv2.bitwise_not(BC)))  # A = AC & !BC
     B = cv2.bitwise_or(cv2.bitwise_and(AB, cv2.bitwise_not(AC)),  # B = AB & !AC
-                       cv2.bitwise_and(AC, cv2.bitwise_not(AC)))  # B = BC & !AC
-    C = cv2.bitwise_or(cv2.bitwise_and(AB, cv2.bitwise_not(AB)),  # C = AC & !AB
-                       cv2.bitwise_and(AC, cv2.bitwise_not(AB)))  # C = BC & !AB
+                       cv2.bitwise_and(BC, cv2.bitwise_not(AC)))  # B = BC & !AC
+    C = cv2.bitwise_or(cv2.bitwise_and(AC, cv2.bitwise_not(AB)),  # C = AC & !AB
+                       cv2.bitwise_and(BC, cv2.bitwise_not(AB)))  # C = BC & !AB
     return [A, B, C]
 def apply_single_rand(imageA, maskA, pool, pool_valid, N):
     grayA = cv2.cvtColor(imageA, cv2.COLOR_BGR2GRAY)
@@ -117,5 +118,38 @@ def run_rail(N=20, iteration=5): # Median with valid mask & Rail mask
     median_with_mask(warpeds, masks)
 
 if __name__ == "__main__":
-    run()
+    warped_list = np.load("X:/warped.npy")
+    mask_list = np.load("X:/mask.npy")
+    # imageA = warped_list[100]
+    # maskA = mask_list[100]
+    # for (imageB, maskB) in zip(warped_list, mask_list):
+    #     cv2.imshow("A", imageA)
+    #     cv2.imshow("B", imageB)
+    #     rail_mask = apply_pair(imageA, maskA, imageB, maskB)
+    #     cv2.imshow("C", rail_mask)
+    #     save = np.hstack([imageA, imageB, cv2.cvtColor(rail_mask, cv2.COLOR_GRAY2BGR)])
+    #     cv2.imwrite("X:/simm.png", save)
+    #     cv2.waitKey(0)
+
+    imageA = warped_list[100]
+    imageB = warped_list[300]
+    imageC = warped_list[500]
+    maskA = mask_list[100]
+    maskB = mask_list[300]
+    maskC = mask_list[500]
+    radius = 10
+    masks = apply_three(imageA, maskA, imageB, maskB, imageC, maskC)
+    # cv2.imwrite("X:/A.png", np.hstack([imageA, imageB, imageC]))
+    # cv2.imwrite("X:/C.png", np.hstack(masks))
+
+    # cv2.imwrite("X:/A1.png", imageA)
+    # cv2.imwrite("X:/A2.png", imageB)
+    # cv2.imwrite("X:/A3.png", imageC)
+    ### Inpainting ###
+    # imageAA = cv2.inpaint(imageA, masks[0], radius, flags=cv2.INPAINT_TELEA)  # inpainting method [cv2.INPAINT_TELEA, cv2.INPAINT_NS]
+    # imageBB = cv2.inpaint(imageB, masks[1], radius, flags=cv2.INPAINT_TELEA)
+    # imageCC = cv2.inpaint(imageC, masks[2], radius, flags=cv2.INPAINT_TELEA)
+    # cv2.imwrite("X:/D.png", np.hstack([imageAA, imageBB, imageCC]))
+
+    # run()
     # run_rail(N=20)
