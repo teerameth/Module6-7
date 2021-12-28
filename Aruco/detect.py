@@ -19,11 +19,11 @@ tvec = np.array([0.0, 0.0, 0.0]) # float only
 # cap.set(3, 1920)
 # cap.set(4, 1080)
 
-cap = cv2.VideoCapture("A.mp4")
+cap = cv2.VideoCapture(cv2.CAP_DSHOW)
 
-parameters =  cv2.aruco.DetectorParameters_create()
-markerLength=0.039 # real
-markerSeparation=0.0975 # real
+parameters = cv2.aruco.DetectorParameters_create()
+markerLength = 0.039        # real
+markerSeparation = 0.0975   # real
 
 board = cv2.aruco.GridBoard_create(markersX=10, markersY=10, markerLength=markerLength, markerSeparation=markerSeparation, dictionary=dictionary)
 ret, frame = cap.read()
@@ -35,11 +35,12 @@ while ret:
         print(o)
     for i in range(len(markerCorners)):
         cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvecs[i], tvec=tvecs[i], length=0.02)
+
     for corner, id in zip(markerCorners, markerIds):
-            points = [(int(point[0]), int(point[1])) for point in corner[0]]
-            ids = id[0]
-            pts1 = np.array(points, np.int32)
-            cv2.fillPoly(frame, [pts1], 255)
+        points = [(int(point[0]), int(point[1])) for point in corner[0]]
+        ids = id[0]
+        pts1 = np.array(points, np.int32)
+        cv2.fillPoly(frame, [pts1], 255)
     cv2.imshow("Preview", frame)
     key = cv2.waitKey(1)
     if key == 27:
